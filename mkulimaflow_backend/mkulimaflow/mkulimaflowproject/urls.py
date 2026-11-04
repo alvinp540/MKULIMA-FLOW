@@ -15,8 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.contrib.auth import views as auth_views
+from django.urls import include, path
+
+from mkulimaflowapp.forms import RoleAuthenticationForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path(
+        'login/',
+        auth_views.LoginView.as_view(
+            authentication_form=RoleAuthenticationForm,
+        ),
+        name='login',
+    ),
+    path('', include('mkulimaflowapp.urls')),
+    path('', include('django.contrib.auth.urls')),
 ]
