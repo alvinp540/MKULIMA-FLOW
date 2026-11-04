@@ -1,6 +1,8 @@
+import json
+
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from .forms import RegisterForm
@@ -104,6 +106,84 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'action="{reverse("logout")}"')
         self.assertContains(response, 'method="post"')
+
+    def test_api_authentication_login_session_and_logout(self):
+        client = Client(enforce_csrf_checks=True)
+        csrf_response = client.get(
+            reverse("api_csrf"),
+            HTTP_HOST="localhost",
+        )
+        csrf_token = csrf_response.json()["csrfToken"]
+
+        login_response = client.post(
+            reverse("api_login"),
+            json.dumps(
+                {
+                    "username": "farmer@example.com",
+                    "password": self.password,
+                    "role": "farmer",
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="localhost",
+            HTTP_ORIGIN="http://localhost",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(login_response.status_code, 200)
+        self.assertEqual(login_response.json()["user"]["role"], "farmer")
+
+        session_response = client.get(
+            reverse("api_session"),
+            HTTP_HOST="localhost",
+        )
+        self.assertTrue(session_response.json()["authenticated"])
+        refreshed_csrf_response = client.get(
+            reverse("api_csrf"),
+            HTTP_HOST="localhost",
+        )
+
+        logout_response = client.post(
+            reverse("api_logout"),
+            data="{}",
+            content_type="application/json",
+            HTTP_HOST="localhost",
+            HTTP_ORIGIN="http://localhost",
+            HTTP_X_CSRFTOKEN=refreshed_csrf_response.json()["csrfToken"],
+        )
+        self.assertEqual(logout_response.status_code, 200)
+        self.assertFalse(logout_response.json()["authenticated"])
+
+    def test_api_signup_assigns_role_and_authenticates_user(self):
+        client = Client(enforce_csrf_checks=True)
+        csrf_response = client.get(
+            reverse("api_csrf"),
+            HTTP_HOST="localhost",
+        )
+
+        response = client.post(
+            reverse("api_signup"),
+            json.dumps(
+                {
+                    "username": "newbuyer",
+                    "email": "newbuyer@example.com",
+                    "password1": "Strong-buyer-password-593!",
+                    "password2": "Strong-buyer-password-593!",
+                    "role": "buyer",
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="localhost",
+            HTTP_ORIGIN="http://localhost",
+            HTTP_X_CSRFTOKEN=csrf_response.json()["csrfToken"],
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["user"]["role"], "buyer")
+        self.assertTrue(
+            client.get(reverse("api_session"), HTTP_HOST="localhost").json()[
+                "authenticated"
+            ]
+        )
 
     def test_admin_can_manage_users(self):
         admin = get_user_model().objects.create_superuser(

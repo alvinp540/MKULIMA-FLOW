@@ -1,0 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", "Segoe UI", sans-serif;
+  --font-display: "Manrope", "Segoe UI", sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: #252d25;
+    background: #fbfaf6;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  button,
+  input {
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: #dce8d1;
+    color: #1d422f;
+  }
+}
