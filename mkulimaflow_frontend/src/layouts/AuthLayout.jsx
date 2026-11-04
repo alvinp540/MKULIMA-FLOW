@@ -4,7 +4,7 @@ import { UserGroup} from 'lucide-react';
 export default function AuthLayout({ eyebrow, title, description, children, footer }) {
   return (
     <main className="mx-auto my-[42px] grid min-h-[690px] w-[min(1200px,calc(100%-64px))] grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] overflow-hidden rounded-[22px] border border-[#e8e7dd] bg-white shadow-[0_18px_60px_rgba(38,49,35,0.07)] max-md:my-4 max-md:w-[calc(100%-28px)] max-md:grid-cols-1">
-     <section className="relative min-h-[690px] overflow-hidden bg-cover bg-center text-white max-md:hidden bg-[url('/images/signup.png')]">        {/* Dark overlay for text readability */}
+     <section className="relative min-h-[690px] overflow-hidden bg-cover bg-center text-white max-md:hidden bg-[url('/images/signup.png')]">        
         <div className="absolute inset-0 bg-black/40" />
 
         
@@ -29,7 +29,7 @@ export default function AuthLayout({ eyebrow, title, description, children, foot
         <div className="pointer-events-none absolute -bottom-[110px] -left-[10%] h-[170px] w-[120%] rotate-[-6deg] rounded-[50%_50%_0_0] border border-white/20 bg-[#78905b]/40 backdrop-blur-xs" />
         <div className="pointer-events-none absolute -bottom-[111px] -left-[10%] h-[163px] w-[120%] rotate-[4deg] rounded-[50%_50%_0_0] border border-white/20 bg-[#5e794b]/40 backdrop-blur-xs" />
         <div className="pointer-events-none absolute -bottom-[146px] -left-[10%] h-[164px] w-[120%] rotate-[-3deg] rounded-[50%_50%_0_0] border border-white/20 bg-[#425f3e]/40 backdrop-blur-xs" />
-        <div className="pointer-events-none absolute bottom-24 right-[24%] size-11 rounded-full bg-[#d9dfaa] shadow-[0_0_58px_rgba(217,223,170,0.36)]" />
+        
       </section>
 
       <section className="flex items-center justify-center px-[50px] py-14 max-lg:px-8 max-md:px-6 max-md:py-8 max-[410px]:px-[17px]">
