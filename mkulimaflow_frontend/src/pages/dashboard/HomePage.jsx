@@ -37,15 +37,15 @@ export default function HomePage() {
     <div className="space-y-7">
       <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-[#78877a]">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-[#223d2f]">
             <CalendarDays aria-hidden="true" size={14} />
             {date}
           </div>
           <h1 className="font-display text-[clamp(25px,3vw,34px)] font-bold leading-tight tracking-[-1.2px] text-[#26352b]">
             Good to see you, {firstName}
           </h1>
-          <p className="mt-1.5 text-[13px] text-[#7b887e]">
-            Here is what is happening at <span className="font-semibold text-[#526458]">{farm}</span>.
+          <p className="mt-1.5 text-[13px] text-[#223d2f]">
+            Here is what is happening at <span className="font-semibold text-[#223d2f]">{farm}</span>.
           </p>
         </div>
         
@@ -100,7 +100,7 @@ export default function HomePage() {
             Once flock management is ready, you’ll be able to keep bird records, track egg collection, and stay on top of flock health here.
           </p>
           <div className="mt-auto flex items-center gap-2 border-t border-white/10 pt-4 text-[11px] font-medium text-white/75">
-            <span className="size-1.5 rounded-full bg-[#c8dda6]" />
+            
             Flock management is coming soon
           </div>
         </article>

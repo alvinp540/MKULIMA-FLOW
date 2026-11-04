@@ -27,16 +27,9 @@ const navigation = [
 function Sidebar({ open, onClose }) {
   return (
     <>
-      {open && (
-        <button
-          aria-label="Close navigation"
-          className="fixed inset-0 z-30 bg-[#17251d]/40 backdrop-blur-[2px] lg:hidden"
-          onClick={onClose}
-          type="button"
-        />
-      )}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#1d382b] text-white transition-transform duration-200 lg:static lg:z-auto lg:min-h-screen lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-[77px] items-center justify-between border-b border-white/10 px-6">
+      
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#223d2f] text-white transition-transform duration-200 lg:static lg:z-auto lg:min-h-screen lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex h-[77px] items-center justify-between border-b border-grey/10 px-6">
           <Link aria-label="MkulimaFlow home" className="flex items-center gap-2.5 no-underline" to="/">
             <img alt="" className="h-10 w-10 rounded-xl object-cover" src="/images/mkulimaflow-logo.png" />
             <span className="font-display text-[16px] font-bold tracking-[-0.4px] text-white">
@@ -99,14 +92,7 @@ function Sidebar({ open, onClose }) {
           </button>
         </nav>
 
-        <div className="m-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-          <div className="mb-2 flex size-8 items-center justify-center rounded-lg bg-[#b8d28e]/15 text-[#c8dda6]">
-            <CircleHelp aria-hidden="true" size={17} />
-          </div>
-          <p className="text-xs font-semibold text-white">Need a hand?</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/55">We are here to help you get your farm set up.</p>
-          <p className="mt-3 text-[11px] font-semibold text-[#c8dda6]">Support is here when you need it</p>
-        </div>
+        
       </aside>
     </>
   )
@@ -137,7 +123,7 @@ export default function DashboardLayout() {
     <div className="min-h-screen bg-[#f7f8f5] text-[#27352c] lg:flex">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 border-b border-[#e8ebe4] bg-white/95 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-white/10 bg-[linear-gradient(rgba(24,74,43,0.9),rgba(24,74,43,0.9)),url('/images/dashboardbackground.png')] bg-cover bg-center text-white">
           <div className="flex min-h-[77px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-9">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -149,10 +135,10 @@ export default function DashboardLayout() {
                 <Menu size={19} />
               </button>
               <div className="min-w-0">
-                <span className="hidden text-[10px] font-semibold uppercase tracking-[1.2px] text-[#929d92] sm:block">Your workspace</span>
-                <label className="relative mt-0.5 flex max-w-[240px] items-center gap-2 text-sm font-bold text-[#27352c]">
+                <span className="hidden text-[10px] font-semibold uppercase tracking-[1.2px] text-white/65 sm:block">Your workspace</span>
+                <label className="relative mt-0.5 flex max-w-[240px] items-center gap-2 text-sm font-bold text-white">
                   <span className="sr-only">Select farm</span>
-                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[#edf3e6] text-[#477147]">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/15 text-[#d7e9bc]">
                     <Activity aria-hidden="true" size={15} />
                   </span>
                   <select
@@ -164,30 +150,30 @@ export default function DashboardLayout() {
                     <option value="Main farm">Main farm</option>
                     <option value="North farm">North farm</option>
                   </select>
-                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-0 text-[#819083]" size={15} />
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-0 text-white/65" size={15} />
                 </label>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-              <span className="hidden text-[12px] text-[#7c897f] md:block">Farm workspace</span>
+              <span className="hidden text-[12px] text-white/70 md:block">Farm workspace</span>
               <button
                 aria-label="Notifications"
-                className="relative grid size-10 place-items-center rounded-xl text-[#68766b] transition hover:bg-[#f4f6f1] hover:text-[#365c42]"
+                className="relative grid size-10 place-items-center rounded-xl text-white/85 transition hover:bg-white/10 hover:text-white"
                 type="button"
               >
                 <Bell aria-hidden="true" size={19} strokeWidth={1.8} />
                 <span className="absolute right-[9px] top-[8px] size-2 rounded-full border-2 border-white bg-[#d68c54]" />
               </button>
-              <div className="hidden h-8 w-px bg-[#e8ebe4] sm:block" />
+              <div className="hidden h-8 w-px bg-white/20 sm:block" />
               <div className="flex items-center gap-2.5">
-                <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-[#e9f0e2] text-[11px] font-bold text-[#456a47]">
+                <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-white/15 text-[11px] font-bold text-white">
                   {initials}
                 </span>
                 <div className="hidden max-w-[135px] sm:block">
-                  <p className="truncate text-[12px] font-semibold text-[#344238]">{user?.username}</p>
+                  <p className="truncate text-[12px] font-semibold text-white">{user?.username}</p>
                   <button
-                    className="text-[10px] text-[#78857a] transition hover:text-[#a14d37] disabled:opacity-60"
+                    className="text-[10px] text-white/70 transition hover:text-white disabled:opacity-60"
                     disabled={signingOut}
                     onClick={handleSignOut}
                     type="button"
@@ -197,7 +183,7 @@ export default function DashboardLayout() {
                 </div>
                 <button
                   aria-label={signingOut ? 'Signing out' : 'Sign out'}
-                  className="grid size-9 place-items-center rounded-lg text-[#78857a] hover:bg-[#f4f6f1] sm:hidden"
+                  className="grid size-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white sm:hidden"
                   disabled={signingOut}
                   onClick={handleSignOut}
                   type="button"
