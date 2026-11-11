@@ -17,11 +17,11 @@ import {
 import useAuth from '../hooks/useAuth'
 
 const navigation = [
-  { label: 'Overview', icon: LayoutDashboard, active: true },
-  { label: 'Flock', icon: Activity },
-  { label: 'Egg production', icon: Egg },
-  { label: 'Feed inventory', icon: Package },
-  { label: 'Health & care', icon: ShieldCheck },
+  { label: 'Overview', icon: LayoutDashboard, path: '/' },
+  { label: 'Flock', icon: Activity, path: '/flocks' },
+  { label: 'Egg production', icon: Egg, path: '/flocks' },
+  { label: 'Feed inventory', icon: Package, path: '/flocks' },
+  { label: 'Health & care', icon: ShieldCheck, path: '/flocks' },
 ]
 
 function Sidebar({ open, onClose }) {
@@ -49,20 +49,29 @@ function Sidebar({ open, onClose }) {
         <nav aria-label="Farm management" className="flex-1 px-4 py-7">
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Farm management</p>
           <ul className="space-y-1">
-            {navigation.map(({ label, icon: Icon, active }) => (
-              <li key={label}>
-                {active ? (
-                  <NavLink
-                    className="flex min-h-11 items-center gap-3 rounded-xl bg-[#b8d28e]/15 px-3 text-[13px] font-semibold text-[#d3e6b2] no-underline"
-                    end
-                    onClick={onClose}
-                    to="/"
-                  >
-                    <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
-                    {label}
-                    <span className="ml-auto size-1.5 rounded-full bg-[#b8d28e]" />
-                  </NavLink>
-                ) : (
+            {navigation.map(({ label, icon: Icon, path }) => {
+              const isOverview = path === '/'
+              const isFlock = path === '/flocks'
+              const isActive = window.location.pathname === path || (isOverview && window.location.pathname === '/')
+
+              if (isFlock || isOverview) {
+                return (
+                  <li key={label}>
+                    <NavLink
+                      className={({ isActive: navIsActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline ${navIsActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
+                      onClick={onClose}
+                      to={path}
+                    >
+                      <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
+                      {label}
+                      {isActive ? <span className="ml-auto size-1.5 rounded-full bg-[#b8d28e]" /> : null}
+                    </NavLink>
+                  </li>
+                )
+              }
+
+              return (
+                <li key={label}>
                   <button
                     aria-disabled="true"
                     className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-white/65"
@@ -74,9 +83,9 @@ function Sidebar({ open, onClose }) {
                     {label}
                     <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide text-white/35">Soon</span>
                   </button>
-                )}
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
 
           <p className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Workspace</p>

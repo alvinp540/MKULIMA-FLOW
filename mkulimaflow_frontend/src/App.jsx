@@ -6,6 +6,7 @@ import PublicOnly from './components/auth/PublicOnly'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import HomePage from './pages/dashboard/HomePage'
+import FlocksPage from './pages/dashboard/FlocksPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -35,6 +36,7 @@ export default function App() {
         </Route>
         <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
           <Route index element={<HomePage />} />
+          <Route path="flocks" element={<FlocksPage />} />
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>

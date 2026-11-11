@@ -17,29 +17,38 @@ async function getCsrfToken() {
   return csrfToken
 }
 
-export async function authRequest(path, { method = 'GET', body } = {}) {
-  const headers = { Accept: 'application/json' }
+export async function csrfFetch(url, { method = 'GET', body, headers = {}, credentials = 'include' } = {}) {
+  const requestHeaders = { Accept: 'application/json', ...headers }
 
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
-  if (method !== 'GET') headers['X-CSRFToken'] = await getCsrfToken()
-
-  let response
-
-  try {
-    response = await fetch(`${AUTH_API}/${path}/`, {
-      method,
-      credentials: 'include',
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new Error('Unable to reach the server. Check that the backend is running.')
+  if (body !== undefined && !(body instanceof FormData)) {
+    requestHeaders['Content-Type'] = 'application/json'
   }
 
-  const data = await response.json().catch(() => ({}))
+  if (method !== 'GET' && method !== 'HEAD') {
+    requestHeaders['X-CSRFToken'] = await getCsrfToken()
+  }
 
-  if (!response.ok) throw new Error(formatError(data))
-  return data
+  try {
+    const response = await fetch(url, {
+      method,
+      credentials,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
+    })
+
+    if (response.status === 204) return null
+
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(formatError(data))
+    return data
+  } catch (error) {
+    if (error instanceof Error && error.message) throw error
+    throw new Error('Unable to reach the server. Check that the backend is running.')
+  }
+}
+
+export async function authRequest(path, { method = 'GET', body } = {}) {
+  return csrfFetch(`${AUTH_API}/${path}/`, { method, body })
 }
 
 function formatError(data) {

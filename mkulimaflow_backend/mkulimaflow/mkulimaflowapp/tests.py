@@ -2,10 +2,53 @@ import json
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
 from django.urls import reverse
 
 from .forms import RegisterForm
+from .models import Farm, Flock
+
+
+class FlockModelTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username="flockowner",
+            password="Strong-test-password-593!",
+        )
+        self.farm = Farm.objects.create(owner=self.owner, name="Main farm")
+
+    def test_flock_stores_registration_details_and_defaults_to_active(self):
+        flock = Flock.objects.create(
+            farm=self.farm,
+            name="Layer house 1",
+            poultry_type=Flock.PoultryType.LAYER,
+            breed="Kuroiler",
+            initial_quantity=120,
+            acquisition_date="2026-10-01",
+            supplier="Local hatchery",
+            housing_unit="House 1",
+            purpose=Flock.Purpose.EGGS,
+            notes="First flock",
+        )
+
+        self.assertEqual(flock.status, Flock.Status.ACTIVE)
+        self.assertEqual(self.farm.flocks.get(), flock)
+        self.assertEqual(str(flock), "Layer house 1")
+
+    def test_flock_requires_positive_initial_quantity(self):
+        flock = Flock(
+            farm=self.farm,
+            name="Empty flock",
+            poultry_type=Flock.PoultryType.BROILER,
+            breed="Cobb 500",
+            initial_quantity=0,
+            acquisition_date="2026-10-01",
+            purpose=Flock.Purpose.MEAT,
+        )
+
+        with self.assertRaises(ValidationError):
+            flock.full_clean()
 
 
 class AuthenticationTests(TestCase):
