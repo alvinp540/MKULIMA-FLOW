@@ -14,4 +14,13 @@ urlpatterns = [
     path('api/farms/', views.api_farms, name='api_farms'),
     path('api/flocks/', views.api_flocks, name='api_flocks'),
     path('api/flocks/<int:flock_id>/', views.api_flock_detail, name='api_flock_detail'),
+    path('api/egg-production/', views.api_egg_production, name='api_egg_production'),
+    path('api/egg-production/<int:egg_id>/', views.api_egg_production_detail, name='api_egg_production_detail'),
+    path('api/feed/items/', views.api_feed_items, name='api_feed_items'),
+    path('api/feed/stock/', views.api_feed_stock, name='api_feed_stock'),
+    path('api/feed/stock-out/', views.api_feed_stock_out, name='api_feed_stock_out'),
+    path('api/feed/consumption/', views.api_feed_consumption, name='api_feed_consumption'),
+    path('api/feed/movements/', views.api_feed_movements, name='api_feed_movements'),
+    path('api/feed/low-stock/', views.api_feed_low_stock, name='api_feed_low_stock'),
+    path('api/feed/reports/', views.api_feed_reports, name='api_feed_reports'),
 ]

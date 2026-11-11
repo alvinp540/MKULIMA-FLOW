@@ -7,6 +7,8 @@ import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import HomePage from './pages/dashboard/HomePage'
 import FlocksPage from './pages/dashboard/FlocksPage'
+import EggProductionPage from './pages/dashboard/EggProductionPage'
+import FeedInventoryPage from './pages/dashboard/FeedInventoryPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
           <Route index element={<HomePage />} />
           <Route path="flocks" element={<FlocksPage />} />
+          <Route path="egg-production" element={<EggProductionPage />} />
+          <Route path="feed" element={<FeedInventoryPage />} />
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>

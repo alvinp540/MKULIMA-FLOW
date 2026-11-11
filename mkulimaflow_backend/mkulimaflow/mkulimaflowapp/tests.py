@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from .forms import RegisterForm
-from .models import Farm, Flock
+from .models import EggProduction, Farm, FeedItem, FeedMovement, Flock
 
 
 class FlockModelTests(TestCase):
@@ -49,6 +49,98 @@ class FlockModelTests(TestCase):
 
         with self.assertRaises(ValidationError):
             flock.full_clean()
+
+
+class EggProductionModelTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username="eggowner",
+            email="eggowner@example.com",
+            password="Strong-test-password-593!",
+        )
+        self.farm = Farm.objects.create(owner=self.owner, name="Layer house")
+        self.flock = Flock.objects.create(
+            farm=self.farm,
+            name="Layer flock A",
+            poultry_type=Flock.PoultryType.LAYER,
+            breed="Kuroiler",
+            initial_quantity=250,
+            acquisition_date="2026-10-01",
+            supplier="Local hatchery",
+            housing_unit="House 1",
+            purpose=Flock.Purpose.EGGS,
+        )
+
+    def test_egg_records_capture_collection_details(self):
+        record = EggProduction.objects.create(
+            flock=self.flock,
+            collection_date="2026-11-01",
+            eggs_collected=160,
+            broken_eggs=12,
+            quality_grade=EggProduction.QualityGrade.GRADE_A,
+            notes="Strong yield this morning.",
+        )
+
+        self.assertEqual(record.flock, self.flock)
+        self.assertEqual(record.quality_grade, EggProduction.QualityGrade.GRADE_A)
+        self.assertEqual(str(record), f"{self.flock.name} · 2026-11-01")
+
+    def test_egg_records_reject_broken_eggs_over_total(self):
+        record = EggProduction(
+            flock=self.flock,
+            collection_date="2026-11-02",
+            eggs_collected=80,
+            broken_eggs=90,
+            quality_grade=EggProduction.QualityGrade.GRADE_B,
+        )
+
+        with self.assertRaises(ValidationError):
+            record.full_clean()
+
+
+class FeedInventoryModelTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(
+            username="feedmanager",
+            email="feedmanager@example.com",
+            password="Strong-test-password-593!",
+        )
+        self.farm = Farm.objects.create(owner=self.owner, name="Broiler farm")
+        self.flock = Flock.objects.create(
+            farm=self.farm,
+            name="Broiler flock 1",
+            poultry_type=Flock.PoultryType.BROILER,
+            breed="Cobb 500",
+            initial_quantity=200,
+            acquisition_date="2026-10-05",
+            purpose=Flock.Purpose.MEAT,
+        )
+
+    def test_feed_item_tracks_inventory_and_low_stock_logic(self):
+        feed = FeedItem.objects.create(
+            owner=self.owner,
+            name="Broiler Starter",
+            category=FeedItem.Category.BROILER_STARTER,
+            unit="kg",
+            unit_cost="120.00",
+            minimum_stock="250",
+            current_stock="180",
+            supplier="Apex Feeds",
+        )
+
+        movement = FeedMovement.objects.create(
+            feed_item=feed,
+            flock=self.flock,
+            movement_type=FeedMovement.MovementType.STOCK_OUT,
+            quantity="50",
+            unit_cost="120.00",
+            movement_date="2026-11-03",
+            reference="Batch A",
+        )
+
+        self.assertEqual(feed.name, "Broiler Starter")
+        self.assertEqual(movement.quantity, 50)
+        self.assertTrue(feed.current_stock >= 0)
 
 
 class AuthenticationTests(TestCase):

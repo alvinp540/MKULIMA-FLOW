@@ -19,8 +19,8 @@ import useAuth from '../hooks/useAuth'
 const navigation = [
   { label: 'Overview', icon: LayoutDashboard, path: '/' },
   { label: 'Flock', icon: Activity, path: '/flocks' },
-  { label: 'Egg production', icon: Egg, path: '/flocks' },
-  { label: 'Feed inventory', icon: Package, path: '/flocks' },
+  { label: 'Egg production', icon: Egg, path: '/egg-production' },
+  { label: 'Feed inventory', icon: Package, path: '/feed' },
   { label: 'Health & care', icon: ShieldCheck, path: '/flocks' },
 ]
 
@@ -51,10 +51,10 @@ function Sidebar({ open, onClose }) {
           <ul className="space-y-1">
             {navigation.map(({ label, icon: Icon, path }) => {
               const isOverview = path === '/'
-              const isFlock = path === '/flocks'
+              const isWorkingLink = ['/', '/flocks', '/egg-production', '/feed'].includes(path)
               const isActive = window.location.pathname === path || (isOverview && window.location.pathname === '/')
 
-              if (isFlock || isOverview) {
+              if (isWorkingLink) {
                 return (
                   <li key={label}>
                     <NavLink
