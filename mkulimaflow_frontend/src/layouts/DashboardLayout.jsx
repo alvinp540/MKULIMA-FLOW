@@ -89,16 +89,14 @@ function Sidebar({ open, onClose }) {
           </ul>
 
           <p className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Workspace</p>
-          <button
-            aria-disabled="true"
-            className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-white/65"
-            disabled
-            title="Settings — coming soon"
-            type="button"
+          <NavLink
+            className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline ${isActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
+            onClick={onClose}
+            to="/settings"
           >
             <Settings aria-hidden="true" size={18} strokeWidth={1.8} />
             Settings
-          </button>
+          </NavLink>
         </nav>
 
         

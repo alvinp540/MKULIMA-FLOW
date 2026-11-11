@@ -27,6 +27,36 @@ class Farm(models.Model):
         return self.name
 
 
+class UserSettings(models.Model):
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="settings",
+    )
+    full_name = models.CharField(max_length=120, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    timezone = models.CharField(max_length=80, default="East Africa Time (UTC+3)")
+    farm_name = models.CharField(max_length=120, blank=True)
+    farm_location = models.CharField(max_length=255, blank=True)
+    production_focus = models.CharField(max_length=120, blank=True)
+    currency = models.CharField(max_length=8, default="KES")
+    day_start = models.TimeField(default="06:00:00")
+    auto_alerts = models.BooleanField(default=True)
+    weekly_digest = models.BooleanField(default=True)
+    low_stock_alert = models.BooleanField(default=True)
+    mortality_alert = models.BooleanField(default=True)
+    email_reports = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["owner__username"]
+
+    def __str__(self):
+        return f"Settings for {self.owner.get_username()}"
+
+
 class Flock(models.Model):
     class PoultryType(models.TextChoices):
         BROILER = "broiler", "Broiler"

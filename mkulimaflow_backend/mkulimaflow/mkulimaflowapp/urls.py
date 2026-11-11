@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/feed/movements/', views.api_feed_movements, name='api_feed_movements'),
     path('api/feed/low-stock/', views.api_feed_low_stock, name='api_feed_low_stock'),
     path('api/feed/reports/', views.api_feed_reports, name='api_feed_reports'),
+    path('api/settings/', views.api_user_settings, name='api_user_settings'),
     path('api/health/dashboard/', views.api_health_dashboard, name='api_health_dashboard'),
     path('api/health/records/', views.api_health_records, name='api_health_records'),
     path('api/health/vaccinations/', views.api_health_vaccinations, name='api_health_vaccinations'),

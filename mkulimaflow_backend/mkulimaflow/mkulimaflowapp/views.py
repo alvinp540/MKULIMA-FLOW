@@ -1,4 +1,5 @@
 ﻿import json
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -27,6 +28,7 @@ from .models import (
     Medication,
     MortalityRecord,
     TreatmentRecord,
+    UserSettings,
     VaccinationPlan,
     VaccinationRecord,
     VeterinaryVisit,
@@ -59,6 +61,29 @@ def _serialize_farm(farm):
         "name": farm.name,
         "location": farm.location,
         "owner_id": farm.owner_id,
+    }
+
+
+def _serialize_user_settings(settings_record):
+    if settings_record is None:
+        settings_record = UserSettings(owner=None)
+    return {
+        "id": settings_record.id,
+        "full_name": settings_record.full_name,
+        "email": settings_record.email,
+        "phone": settings_record.phone,
+        "timezone": settings_record.timezone,
+        "farm_name": settings_record.farm_name,
+        "farm_location": settings_record.farm_location,
+        "production_focus": settings_record.production_focus,
+        "currency": settings_record.currency,
+        "day_start": settings_record.day_start.isoformat() if settings_record.day_start else "06:00:00",
+        "auto_alerts": settings_record.auto_alerts,
+        "weekly_digest": settings_record.weekly_digest,
+        "low_stock_alert": settings_record.low_stock_alert,
+        "mortality_alert": settings_record.mortality_alert,
+        "email_reports": settings_record.email_reports,
+        "updated_at": settings_record.updated_at.isoformat() if getattr(settings_record, "updated_at", None) else None,
     }
 
 
@@ -366,6 +391,64 @@ def api_signup(request):
 def api_logout(request):
     auth_logout(request)
     return JsonResponse({"authenticated": False})
+
+
+@require_http_methods(["GET", "PUT"])
+def api_user_settings(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    settings_record, _ = UserSettings.objects.get_or_create(owner=request.user)
+
+    if request.method == "PUT":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        field_map = {
+            "full_name": "full_name",
+            "email": "email",
+            "phone": "phone",
+            "timezone": "timezone",
+            "farm_name": "farm_name",
+            "farm_location": "farm_location",
+            "production_focus": "production_focus",
+            "currency": "currency",
+            "day_start": "day_start",
+            "auto_alerts": "auto_alerts",
+            "weekly_digest": "weekly_digest",
+            "low_stock_alert": "low_stock_alert",
+            "mortality_alert": "mortality_alert",
+            "email_reports": "email_reports",
+        }
+
+        for request_field, model_field in field_map.items():
+            if request_field not in data:
+                continue
+
+            value = data.get(request_field)
+            if value is None:
+                continue
+
+            if model_field == "day_start" and value:
+                try:
+                    value = datetime.strptime(str(value), "%H:%M").time()
+                except ValueError:
+                    return JsonResponse({"error": "Day start time must be in HH:MM format."}, status=400)
+
+            setattr(settings_record, model_field, value)
+
+        if not settings_record.email and request.user.email:
+            settings_record.email = request.user.email
+        if not settings_record.full_name:
+            name_parts = [request.user.first_name, request.user.last_name]
+            settings_record.full_name = " ".join(part.strip() for part in name_parts if part.strip())
+
+        settings_record.save()
+        return JsonResponse(_serialize_user_settings(settings_record))
+
+    return JsonResponse({"settings": _serialize_user_settings(settings_record)})
 
 
 @require_http_methods(["GET", "POST"])
