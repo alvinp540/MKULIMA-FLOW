@@ -11,6 +11,7 @@ import {
   TrendingUp,
   UserRoundPlus,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { csrfFetch } from '../../services/authService'
 
 const today = new Date().toISOString().slice(0, 10)
@@ -383,9 +384,15 @@ export default function HealthcarePage() {
             <p className="text-[10px] font-bold uppercase tracking-[1.8px] text-[#d7ebbe]">Poultry healthcare</p>
             <h1 className="mt-3 font-display text-[clamp(28px,3vw,42px)] font-semibold tracking-[-1.4px] text-white">Health & care</h1>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-[#edf8d6]">
-            <ShieldCheck className="size-3.5" />
-            {dashboard.alerts?.length ?? 0} health alerts
+          <div className="flex items-center gap-3">
+            <Link to="/healthcare/reports" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-[#edf8d6] no-underline">
+              <Activity className="size-3.5" />
+              Health reports
+            </Link>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-[#edf8d6]">
+              <ShieldCheck className="size-3.5" />
+              {dashboard.alerts?.length ?? 0} health alerts
+            </div>
           </div>
         </div>
       </section>

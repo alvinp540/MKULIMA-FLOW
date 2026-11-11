@@ -10,6 +10,7 @@ import FlocksPage from './pages/dashboard/FlocksPage'
 import EggProductionPage from './pages/dashboard/EggProductionPage'
 import FeedInventoryPage from './pages/dashboard/FeedInventoryPage'
 import HealthcarePage from './pages/dashboard/HealthcarePage'
+import HealthReportsPage from './pages/dashboard/HealthReportsPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="egg-production" element={<EggProductionPage />} />
           <Route path="feed" element={<FeedInventoryPage />} />
           <Route path="healthcare" element={<HealthcarePage />} />
+          <Route path="healthcare/reports" element={<HealthReportsPage />} />
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
