@@ -15,7 +15,22 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .forms import RegisterForm
-from .models import EggProduction, Farm, FeedItem, FeedMovement, Flock
+from .models import (
+    DiseaseCase,
+    EggProduction,
+    Farm,
+    FeedItem,
+    FeedMovement,
+    Flock,
+    HealthRecord,
+    HealthSchedule,
+    Medication,
+    MortalityRecord,
+    TreatmentRecord,
+    VaccinationPlan,
+    VaccinationRecord,
+    VeterinaryVisit,
+)
 from .roles import ROLE_CHOICES
 
 
@@ -143,6 +158,138 @@ def _serialize_feed_movement(movement):
         "notes": movement.notes,
         "created_at": movement.created_at.isoformat(),
         "updated_at": movement.updated_at.isoformat(),
+    }
+
+
+def _serialize_health_record(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "record_date": record.record_date.isoformat(),
+        "status": record.status,
+        "body_temperature": float(record.body_temperature) if record.body_temperature is not None else None,
+        "condition_score": record.condition_score,
+        "observed_by": record.observed_by,
+        "notes": record.notes,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    }
+
+
+def _serialize_vaccination_plan(plan):
+    return {
+        "id": plan.id,
+        "flock_id": plan.flock_id,
+        "flock_name": plan.flock.name,
+        "vaccine_name": plan.vaccine_name,
+        "scheduled_date": plan.scheduled_date.isoformat(),
+        "due_date": plan.due_date.isoformat(),
+        "status": plan.status,
+        "administered_by": plan.administered_by,
+        "notes": plan.notes,
+        "created_at": plan.created_at.isoformat(),
+        "updated_at": plan.updated_at.isoformat(),
+    }
+
+
+def _serialize_vaccination_record(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "vaccine_name": record.vaccine_name,
+        "administered_date": record.administered_date.isoformat(),
+        "batch_number": record.batch_number,
+        "administered_by": record.administered_by,
+        "notes": record.notes,
+        "plan_id": record.plan_id,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    }
+
+
+def _serialize_disease_case(disease):
+    return {
+        "id": disease.id,
+        "flock_id": disease.flock_id,
+        "flock_name": disease.flock.name,
+        "disease_name": disease.disease_name,
+        "diagnosis_date": disease.diagnosis_date.isoformat(),
+        "severity": disease.severity,
+        "status": disease.status,
+        "symptoms": disease.symptoms,
+        "diagnosis": disease.diagnosis,
+        "treatment_plan": disease.treatment_plan,
+        "notes": disease.notes,
+        "created_at": disease.created_at.isoformat(),
+        "updated_at": disease.updated_at.isoformat(),
+    }
+
+
+def _serialize_treatment_record(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "disease_case_id": record.disease_case_id,
+        "treatment_name": record.treatment_name,
+        "medication": record.medication,
+        "dosage": record.dosage,
+        "start_date": record.start_date.isoformat(),
+        "end_date": record.end_date.isoformat() if record.end_date else None,
+        "status": record.status,
+        "veterinarian": record.veterinarian,
+        "notes": record.notes,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    }
+
+
+def _serialize_mortality_record(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "record_date": record.record_date.isoformat(),
+        "deaths": record.deaths,
+        "culls": record.culls,
+        "cause": record.cause,
+        "notes": record.notes,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    }
+
+
+def _serialize_veterinary_visit(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "visit_date": record.visit_date.isoformat(),
+        "veterinarian_name": record.veterinarian_name,
+        "purpose": record.purpose,
+        "findings": record.findings,
+        "recommendations": record.recommendations,
+        "notes": record.notes,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    }
+
+
+def _serialize_health_schedule(record):
+    return {
+        "id": record.id,
+        "flock_id": record.flock_id,
+        "flock_name": record.flock.name,
+        "title": record.title,
+        "category": record.category,
+        "scheduled_for": record.scheduled_for.isoformat(),
+        "status": record.status,
+        "assigned_to": record.assigned_to,
+        "notes": record.notes,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
     }
 
 
@@ -787,6 +934,379 @@ def api_feed_reports(request):
             "total_out": float(total_out),
             "minimum_stock": float(item.minimum_stock),
         })
+    return JsonResponse({"report": report})
+
+
+@require_GET
+def api_health_dashboard(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    flocks = Flock.objects.filter(farm__owner=request.user).select_related("farm")
+    records = HealthRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    plans = VaccinationPlan.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    disease_cases = DiseaseCase.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    mortality = MortalityRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+
+    total_flocks = flocks.count()
+    active_disease_cases = disease_cases.filter(status__in=[DiseaseCase.Status.OPEN, DiseaseCase.Status.MONITORING]).count()
+    vaccinations_due = plans.filter(status__in=[VaccinationPlan.Status.PENDING, VaccinationPlan.Status.OVERDUE]).count()
+    total_birds = flocks.aggregate(total=Sum("initial_quantity"))["total"] or 0
+    total_deaths = mortality.aggregate(total=Sum("deaths"))["total"] or 0
+    mortality_rate = round((total_deaths / total_birds) * 100, 2) if total_birds else 0
+    healthy_flocks = records.filter(status=HealthRecord.Status.HEALTHY).values_list("flock_id", flat=True).distinct().count()
+
+    alerts = []
+    if active_disease_cases:
+        alerts.append({"type": "disease", "title": "Active disease cases", "message": f"{active_disease_cases} flock health cases need attention."})
+    if vaccinations_due:
+        alerts.append({"type": "vaccination", "title": "Vaccinations due", "message": f"{vaccinations_due} vaccination activities are due or overdue."})
+    if not alerts:
+        alerts.append({"type": "healthy", "title": "All clear", "message": "No critical health alerts were raised for the current farm records."})
+
+    return JsonResponse({
+        "summary": {
+            "healthy_flocks": healthy_flocks,
+            "active_disease_cases": active_disease_cases,
+            "vaccinations_due": vaccinations_due,
+            "mortality_rate": mortality_rate,
+            "total_flocks": total_flocks,
+            "total_birds": total_birds,
+        },
+        "alerts": alerts,
+    })
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_records(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        record_date = str(data.get("record_date") or "").strip()
+        if not record_date:
+            return JsonResponse({"error": "Record date is required."}, status=400)
+
+        temp = data.get("body_temperature")
+        try:
+            body_temperature = float(temp) if temp not in (None, "") else None
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Body temperature must be numeric."}, status=400)
+
+        record = HealthRecord.objects.create(
+            flock=flock,
+            record_date=record_date,
+            status=str(data.get("status") or HealthRecord.Status.HEALTHY),
+            body_temperature=body_temperature,
+            condition_score=str(data.get("condition_score") or "").strip(),
+            observed_by=str(data.get("observed_by") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_health_record(record), status=201)
+
+    records = HealthRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({"records": [_serialize_health_record(record) for record in records]})
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_vaccinations(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        vaccine_name = str(data.get("vaccine_name") or "").strip()
+        if not vaccine_name:
+            return JsonResponse({"error": "Vaccine name is required."}, status=400)
+
+        plan = VaccinationPlan.objects.create(
+            flock=flock,
+            vaccine_name=vaccine_name,
+            scheduled_date=data.get("scheduled_date") or timezone.now().date().isoformat(),
+            due_date=data.get("due_date") or timezone.now().date().isoformat(),
+            status=str(data.get("status") or VaccinationPlan.Status.PENDING),
+            administered_by=str(data.get("administered_by") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+
+        if data.get("administered_date"):
+            VaccinationRecord.objects.create(
+                flock=flock,
+                vaccine_name=vaccine_name,
+                administered_date=data.get("administered_date"),
+                batch_number=str(data.get("batch_number") or "").strip(),
+                administered_by=str(data.get("administered_by") or "").strip(),
+                notes=str(data.get("notes") or "").strip(),
+                plan=plan,
+            )
+
+        return JsonResponse(_serialize_vaccination_plan(plan), status=201)
+
+    plans = VaccinationPlan.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    records = VaccinationRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({
+        "plans": [_serialize_vaccination_plan(plan) for plan in plans],
+        "records": [_serialize_vaccination_record(record) for record in records],
+    })
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_diseases(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        disease_name = str(data.get("disease_name") or "").strip()
+        if not disease_name:
+            return JsonResponse({"error": "Disease name is required."}, status=400)
+
+        record = DiseaseCase.objects.create(
+            flock=flock,
+            disease_name=disease_name,
+            diagnosis_date=data.get("diagnosis_date") or timezone.now().date().isoformat(),
+            severity=str(data.get("severity") or DiseaseCase.Severity.MILD),
+            status=str(data.get("status") or DiseaseCase.Status.OPEN),
+            symptoms=str(data.get("symptoms") or "").strip(),
+            diagnosis=str(data.get("diagnosis") or "").strip(),
+            treatment_plan=str(data.get("treatment_plan") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_disease_case(record), status=201)
+
+    cases = DiseaseCase.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({"cases": [_serialize_disease_case(case) for case in cases]})
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_treatments(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        treatment_name = str(data.get("treatment_name") or "").strip()
+        if not treatment_name:
+            return JsonResponse({"error": "Treatment name is required."}, status=400)
+
+        disease_case = None
+        disease_case_id = data.get("disease_case_id")
+        if disease_case_id:
+            try:
+                disease_case = DiseaseCase.objects.get(id=disease_case_id, flock__farm__owner=request.user)
+            except DiseaseCase.DoesNotExist:
+                return JsonResponse({"error": "Disease case not found."}, status=404)
+
+        record = TreatmentRecord.objects.create(
+            flock=flock,
+            disease_case=disease_case,
+            treatment_name=treatment_name,
+            medication=str(data.get("medication") or "").strip(),
+            dosage=str(data.get("dosage") or "").strip(),
+            start_date=data.get("start_date") or timezone.now().date().isoformat(),
+            end_date=data.get("end_date") or None,
+            status=str(data.get("status") or TreatmentRecord.Status.PENDING),
+            veterinarian=str(data.get("veterinarian") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_treatment_record(record), status=201)
+
+    records = TreatmentRecord.objects.filter(flock__farm__owner=request.user).select_related("flock", "disease_case")
+    return JsonResponse({"records": [_serialize_treatment_record(record) for record in records]})
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_mortality(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        try:
+            deaths = int(data.get("deaths", 0) or 0)
+            culls = int(data.get("culls", 0) or 0)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Deaths and culls must be numeric."}, status=400)
+
+        record = MortalityRecord.objects.create(
+            flock=flock,
+            record_date=data.get("record_date") or timezone.now().date().isoformat(),
+            deaths=deaths,
+            culls=culls,
+            cause=str(data.get("cause") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_mortality_record(record), status=201)
+
+    records = MortalityRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({"records": [_serialize_mortality_record(record) for record in records]})
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_schedules(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        record = HealthSchedule.objects.create(
+            flock=flock,
+            title=str(data.get("title") or "").strip(),
+            category=str(data.get("category") or HealthSchedule.Category.CHECKUP),
+            scheduled_for=data.get("scheduled_for") or timezone.now().date().isoformat(),
+            status=str(data.get("status") or HealthSchedule.Status.PENDING),
+            assigned_to=str(data.get("assigned_to") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_health_schedule(record), status=201)
+
+    records = HealthSchedule.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({"records": [_serialize_health_schedule(record) for record in records]})
+
+
+@require_http_methods(["GET", "POST"])
+def api_health_veterinary_visits(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    if request.method == "POST":
+        data = _request_data(request)
+        if data is None:
+            return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+        flock_id = data.get("flock_id")
+        if not flock_id:
+            return JsonResponse({"error": "Flock is required."}, status=400)
+
+        try:
+            flock = Flock.objects.get(id=flock_id, farm__owner=request.user)
+        except Flock.DoesNotExist:
+            return JsonResponse({"error": "Flock not found."}, status=404)
+
+        veterinarian_name = str(data.get("veterinarian_name") or "").strip()
+        if not veterinarian_name:
+            return JsonResponse({"error": "Veterinarian name is required."}, status=400)
+
+        record = VeterinaryVisit.objects.create(
+            flock=flock,
+            visit_date=data.get("visit_date") or timezone.now().date().isoformat(),
+            veterinarian_name=veterinarian_name,
+            purpose=str(data.get("purpose") or "").strip(),
+            findings=str(data.get("findings") or "").strip(),
+            recommendations=str(data.get("recommendations") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+        )
+        return JsonResponse(_serialize_veterinary_visit(record), status=201)
+
+    records = VeterinaryVisit.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    return JsonResponse({"records": [_serialize_veterinary_visit(record) for record in records]})
+
+
+@require_GET
+def api_health_reports(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    flocks = Flock.objects.filter(farm__owner=request.user).select_related("farm")
+    records = HealthRecord.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    cases = DiseaseCase.objects.filter(flock__farm__owner=request.user).select_related("flock")
+    schedules = HealthSchedule.objects.filter(flock__farm__owner=request.user).select_related("flock")
+
+    report = {
+        "total_flocks": flocks.count(),
+        "healthy_flocks": records.filter(status=HealthRecord.Status.HEALTHY).values_list("flock_id", flat=True).distinct().count(),
+        "total_cases": cases.count(),
+        "open_cases": cases.filter(status=DiseaseCase.Status.OPEN).count(),
+        "scheduled_checks": schedules.filter(status=HealthSchedule.Status.PENDING).count(),
+        "status_distribution": {
+            "healthy": records.filter(status=HealthRecord.Status.HEALTHY).count(),
+            "watch": records.filter(status=HealthRecord.Status.WATCH).count(),
+            "sick": records.filter(status=HealthRecord.Status.SICK).count(),
+            "critical": records.filter(status=HealthRecord.Status.CRITICAL).count(),
+        },
+    }
     return JsonResponse({"report": report})
 
 

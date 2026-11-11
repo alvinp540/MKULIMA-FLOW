@@ -23,4 +23,13 @@ urlpatterns = [
     path('api/feed/movements/', views.api_feed_movements, name='api_feed_movements'),
     path('api/feed/low-stock/', views.api_feed_low_stock, name='api_feed_low_stock'),
     path('api/feed/reports/', views.api_feed_reports, name='api_feed_reports'),
+    path('api/health/dashboard/', views.api_health_dashboard, name='api_health_dashboard'),
+    path('api/health/records/', views.api_health_records, name='api_health_records'),
+    path('api/health/vaccinations/', views.api_health_vaccinations, name='api_health_vaccinations'),
+    path('api/health/diseases/', views.api_health_diseases, name='api_health_diseases'),
+    path('api/health/treatments/', views.api_health_treatments, name='api_health_treatments'),
+    path('api/health/mortality/', views.api_health_mortality, name='api_health_mortality'),
+    path('api/health/schedules/', views.api_health_schedules, name='api_health_schedules'),
+    path('api/health/veterinary-visits/', views.api_health_veterinary_visits, name='api_health_veterinary_visits'),
+    path('api/health/reports/', views.api_health_reports, name='api_health_reports'),
 ]

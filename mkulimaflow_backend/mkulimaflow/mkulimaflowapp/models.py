@@ -213,3 +213,267 @@ class FeedMovement(models.Model):
 
     def __str__(self):
         return f"{self.feed_item.name} · {self.movement_type} · {self.quantity} {self.feed_item.unit}"
+
+
+class HealthRecord(models.Model):
+    class Status(models.TextChoices):
+        HEALTHY = "healthy", "Healthy"
+        WATCH = "watch", "Watch"
+        SICK = "sick", "Sick"
+        CRITICAL = "critical", "Critical"
+
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="health_records",
+    )
+    record_date = models.DateField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.HEALTHY)
+    body_temperature = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    condition_score = models.CharField(max_length=40, blank=True)
+    observed_by = models.CharField(max_length=160, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-record_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.record_date}"
+
+
+class VaccinationPlan(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        DONE = "done", "Done"
+        OVERDUE = "overdue", "Overdue"
+        SKIPPED = "skipped", "Skipped"
+
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="vaccination_plans",
+    )
+    vaccine_name = models.CharField(max_length=200)
+    scheduled_date = models.DateField()
+    due_date = models.DateField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    administered_by = models.CharField(max_length=180, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-scheduled_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.vaccine_name}"
+
+
+class VaccinationRecord(models.Model):
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="vaccination_records",
+    )
+    vaccine_name = models.CharField(max_length=200)
+    administered_date = models.DateField()
+    batch_number = models.CharField(max_length=120, blank=True)
+    administered_by = models.CharField(max_length=180, blank=True)
+    notes = models.TextField(blank=True)
+    plan = models.ForeignKey(
+        VaccinationPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-administered_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.vaccine_name}"
+
+
+class DiseaseCase(models.Model):
+    class Severity(models.TextChoices):
+        MILD = "mild", "Mild"
+        MODERATE = "moderate", "Moderate"
+        SEVERE = "severe", "Severe"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        MONITORING = "monitoring", "Monitoring"
+        RESOLVED = "resolved", "Resolved"
+
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="disease_cases",
+    )
+    disease_name = models.CharField(max_length=200)
+    diagnosis_date = models.DateField()
+    severity = models.CharField(max_length=16, choices=Severity.choices, default=Severity.MILD)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    symptoms = models.TextField(blank=True)
+    diagnosis = models.TextField(blank=True)
+    treatment_plan = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-diagnosis_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.disease_name}"
+
+
+class TreatmentRecord(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ONGOING = "ongoing", "Ongoing"
+        COMPLETED = "completed", "Completed"
+
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="treatment_records",
+    )
+    disease_case = models.ForeignKey(
+        DiseaseCase,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="treatments",
+    )
+    treatment_name = models.CharField(max_length=200)
+    medication = models.CharField(max_length=200, blank=True)
+    dosage = models.CharField(max_length=200, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    veterinarian = models.CharField(max_length=180, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-start_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.treatment_name}"
+
+
+class Medication(models.Model):
+    class Category(models.TextChoices):
+        VITAMIN = "vitamin", "Vitamin"
+        ANTIBIOTIC = "antibiotic", "Antibiotic"
+        VACCINE = "vaccine", "Vaccine"
+        OTHER = "other", "Other"
+
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    stock_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    unit = models.CharField(max_length=50, default="bottle")
+    supplier = models.CharField(max_length=200, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class MortalityRecord(models.Model):
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="mortality_records",
+    )
+    record_date = models.DateField()
+    deaths = models.PositiveIntegerField(default=0)
+    culls = models.PositiveIntegerField(default=0)
+    cause = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-record_date", "-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(deaths__gte=0),
+                name="mortality_record_deaths_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(culls__gte=0),
+                name="mortality_record_culls_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.record_date}"
+
+
+class VeterinaryVisit(models.Model):
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="veterinary_visits",
+    )
+    visit_date = models.DateField()
+    veterinarian_name = models.CharField(max_length=200)
+    purpose = models.CharField(max_length=200, blank=True)
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-visit_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.visit_date}"
+
+
+class HealthSchedule(models.Model):
+    class Category(models.TextChoices):
+        VACCINATION = "vaccination", "Vaccination"
+        CHECKUP = "checkup", "Checkup"
+        TREATMENT = "treatment", "Treatment"
+        CLEANING = "cleaning", "Cleaning"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        OVERDUE = "overdue", "Overdue"
+
+    flock = models.ForeignKey(
+        Flock,
+        on_delete=models.CASCADE,
+        related_name="health_schedules",
+    )
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=24, choices=Category.choices, default=Category.CHECKUP)
+    scheduled_for = models.DateField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    assigned_to = models.CharField(max_length=180, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-scheduled_for", "-created_at"]
+
+    def __str__(self):
+        return f"{self.flock.name} · {self.title}"

@@ -21,7 +21,7 @@ const navigation = [
   { label: 'Flock', icon: Activity, path: '/flocks' },
   { label: 'Egg production', icon: Egg, path: '/egg-production' },
   { label: 'Feed inventory', icon: Package, path: '/feed' },
-  { label: 'Health & care', icon: ShieldCheck, path: '/flocks' },
+  { label: 'Health & care', icon: ShieldCheck, path: '/healthcare' },
 ]
 
 function Sidebar({ open, onClose }) {
@@ -51,7 +51,7 @@ function Sidebar({ open, onClose }) {
           <ul className="space-y-1">
             {navigation.map(({ label, icon: Icon, path }) => {
               const isOverview = path === '/'
-              const isWorkingLink = ['/', '/flocks', '/egg-production', '/feed'].includes(path)
+              const isWorkingLink = ['/', '/flocks', '/egg-production', '/feed', '/healthcare'].includes(path)
               const isActive = window.location.pathname === path || (isOverview && window.location.pathname === '/')
 
               if (isWorkingLink) {
