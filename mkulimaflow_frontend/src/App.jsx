@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import Header from './components/common/Header'
 import RequireAuth from './components/auth/RequireAuth'
 import PublicOnly from './components/auth/PublicOnly'
+import LandingPage from './pages/public/LandingPage'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import HomePage from './pages/dashboard/HomePage'
@@ -30,6 +31,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route element={<PublicLayout />}>
+          <Route path="about" element={<LandingPage />} />
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
         </Route>

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 
-export default function Brand({ compact = false, light = false }) {
+export default function Brand({ compact = false, light = false, to = '/' }) {
   return (
-    <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2">
+    <Link to={to} className="flex min-w-0 shrink-0 items-center gap-2">
   <img
     src="/images/mkulimaflow-logo.png"
     alt="MkulimaFlow - Grow together"

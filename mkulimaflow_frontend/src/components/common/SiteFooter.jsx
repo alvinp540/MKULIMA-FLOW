@@ -22,7 +22,8 @@ const FARM_MODULES = [
   { label: 'Health reports', hint: 'Mortality & insights', to: '/healthcare/reports', icon: ClipboardList },
 ]
 
-const ACCOUNT_LINKS = [
+const FOOTER_LINKS = [
+  { label: 'About', to: '/about' },
   { label: 'Log in', to: '/login' },
   { label: 'Create account', to: '/signup' },
 ]
@@ -42,7 +43,7 @@ export default function SiteFooter() {
       <div className="relative mx-auto w-[min(1200px,calc(100%-64px))] py-10 max-sm:w-[calc(100%-36px)] max-sm:py-8">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start lg:gap-12">
           <div className="flex flex-col items-start">
-            <Brand light />
+            <Brand light to="/about" />
             <p className="mt-4 max-w-[330px] text-[12.5px] leading-[1.75] text-white/60">
               A simpler way for farmers and buyers to find each other, track production,
               and move agriculture forward.
@@ -89,7 +90,7 @@ export default function SiteFooter() {
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] text-white/45">© {CURRENT_YEAR} MkulimaFlow. All rights reserved.</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px]">
-            {ACCOUNT_LINKS.map((link) => (
+            {FOOTER_LINKS.map((link) => (
               <Link className={linkClass} key={link.to} to={link.to}>
                 {link.label}
               </Link>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import useAuth from '../../hooks/useAuth'
 import getInitials from '../../utils/initials'
 import Brand from './Brand'
@@ -27,8 +27,14 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[linear-gradient(105deg,rgba(12,37,26,0.95),rgba(24,74,43,0.75)),url('/images/dashboardbackground.png')] bg-cover bg-center text-white shadow-[0_10px_30px_rgba(9,28,19,0.2)] backdrop-blur-md">
       <div className="mx-auto flex min-h-[77px] w-[min(1200px,calc(100%-64px))] items-center justify-between gap-3 max-sm:w-[calc(100%-36px)]">
-        <Brand light compact />
-        <nav className="flex items-center gap-2 sm:gap-4" aria-label="Account navigation">
+        <Brand light compact to="/about" />
+        <nav className="flex items-center gap-2 sm:gap-4" aria-label="Primary">
+          <NavLink
+            className={({ isActive }) => `rounded-full px-2.5 py-1.5 text-[13px] font-semibold no-underline transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-white/10 text-white' : 'text-white/80'}`}
+            to="/about"
+          >
+            About
+          </NavLink>
           {user ? (
             <>
               <span className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1.5 pl-2 pr-3.5 text-[12px] font-semibold text-white/85 backdrop-blur-md sm:inline-flex">
@@ -48,7 +54,7 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link className="rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-white/80 no-underline transition hover:bg-white/10 hover:text-white" to="/login">
+              <Link className="rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-white/80 no-underline transition hover:bg-white/10 hover:text-white max-[420px]:hidden" to="/login">
                 Log in
               </Link>
               <Link
