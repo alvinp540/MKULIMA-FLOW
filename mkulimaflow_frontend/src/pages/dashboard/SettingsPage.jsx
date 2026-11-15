@@ -39,6 +39,14 @@ export default function SettingsPage() {
   const [preferences, setPreferences] = useState(initialPreferences)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [statusMessage, setStatusMessage] = useState('')
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     async function loadSettings() {
@@ -115,9 +123,52 @@ export default function SettingsPage() {
         },
       })
       setSaved(true)
+      setStatusMessage('Settings updated successfully.')
     } catch (error) {
       setSaved(false)
+      setStatusMessage(error.message)
       console.error(error)
+    }
+  }
+
+  function handleResetSettings() {
+    setProfile(initialProfile)
+    setFarm(initialFarm)
+    setPreferences(initialPreferences)
+    setSaved(false)
+    setStatusMessage('Settings reset to default values.')
+  }
+
+  function handleDeleteSavedSettings() {
+    const confirmed = window.confirm('Delete saved settings values and restore the default farm configuration?')
+    if (!confirmed) return
+
+    setProfile(initialProfile)
+    setFarm(initialFarm)
+    setPreferences(initialPreferences)
+    setSaved(false)
+    setStatusMessage('Saved settings were cleared and restored to defaults.')
+  }
+
+  async function handlePasswordChange(event) {
+    event.preventDefault()
+    setPasswordMessage('')
+    setPasswordError('')
+
+    try {
+      const response = await csrfFetch('/api/auth/change-password/', {
+        method: 'POST',
+        body: {
+          current_password: passwordForm.currentPassword,
+          new_password: passwordForm.newPassword,
+          confirm_password: passwordForm.confirmPassword,
+        },
+      })
+
+      setPasswordMessage(response.message || 'Password updated successfully.')
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      setPasswordError(error.message)
     }
   }
 
@@ -148,6 +199,12 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2 rounded-2xl border border-[#dfe7df] bg-[#f3faf4] px-4 py-3 text-sm font-medium text-[#2b6c4b]">
           <Check className="size-4" />
           Settings saved successfully.
+        </div>
+      ) : null}
+
+      {statusMessage ? (
+        <div className="rounded-2xl border border-[#dfe7df] bg-white/90 px-4 py-3 text-sm text-[#2a3b35] shadow-[0_10px_24px_rgba(18,32,25,0.03)]">
+          {statusMessage}
         </div>
       ) : null}
 
@@ -309,16 +366,49 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-[#1d332a]">Security</h2>
             </div>
 
-            <div className="space-y-3 text-sm text-[#4b5852]">
+            <form onSubmit={handlePasswordChange} className="space-y-3 text-sm text-[#4b5852]">
               <div className="rounded-2xl border border-[#edf1eb] bg-[#fafcf8] p-3">
-                <p className="font-semibold text-[#1d332a]">Password</p>
-                <p className="mt-1">Last changed 21 days ago</p>
+                <p className="font-semibold text-[#1d332a]">Change password</p>
+                <div className="mt-3 space-y-3">
+                  <input
+                    type="password"
+                    placeholder="Current password"
+                    className="w-full rounded-xl border border-[#dfe7df] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#7fae72]"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
+                  />
+                  <input
+                    type="password"
+                    placeholder="New password"
+                    className="w-full rounded-xl border border-[#dfe7df] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#7fae72]"
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    className="w-full rounded-xl border border-[#dfe7df] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#7fae72]"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+                  />
+                </div>
               </div>
-              <div className="rounded-2xl border border-[#edf1eb] bg-[#fafcf8] p-3">
-                <p className="font-semibold text-[#1d332a]">Two-factor auth</p>
-                <p className="mt-1">Recommended for admin access</p>
-              </div>
-            </div>
+
+              {passwordError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{passwordError}</div>
+              ) : null}
+
+              {passwordMessage ? (
+                <div className="rounded-xl border border-[#dfe7df] bg-[#f3faf4] px-3 py-2 text-xs text-[#2b6c4b]">{passwordMessage}</div>
+              ) : null}
+
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-[#dfe7df] bg-[#f8faf7] px-3 py-2.5 text-sm font-semibold text-[#1d332a] transition hover:bg-[#f1f6ef]"
+              >
+                Update password
+              </button>
+            </form>
           </div>
 
           <div className="rounded-[24px] border border-[#e7ebe4] bg-white p-5 shadow-[0_12px_28px_rgba(18,32,25,0.04)]">
@@ -329,13 +419,29 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-[#1d332a]">Quick actions</h2>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-[#1f4d34] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#173d2a]"
-            >
-              Save changes
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="inline-flex w-full items-center justify-center rounded-xl bg-[#1f4d34] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#173d2a]"
+              >
+                Save changes
+              </button>
+              <button
+                type="button"
+                onClick={handleResetSettings}
+                className="inline-flex w-full items-center justify-center rounded-xl border border-[#dfe7df] bg-[#f8faf7] px-4 py-3 text-sm font-semibold text-[#1d332a] transition hover:bg-[#f1f6ef]"
+              >
+                Reset settings
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSavedSettings}
+                className="inline-flex w-full items-center justify-center rounded-xl border border-[#f2d5d9] bg-[#fff7f8] px-4 py-3 text-sm font-semibold text-[#8e3348] transition hover:bg-[#fff0f3]"
+              >
+                Delete saved settings
+              </button>
+            </div>
           </div>
         </aside>
       </div>

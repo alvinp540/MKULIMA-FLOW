@@ -11,6 +11,7 @@ from django.db.models import F, Sum
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
+from django.utils.dateparse import parse_date
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -42,6 +43,28 @@ def _request_data(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def _read_date(data, field, label, *, required=False):
+    """Return (date, error_response) for a request field.
+
+    Parsing dates before saving keeps the in-memory model instance storing a
+    real ``date`` object, so serializers can safely call ``isoformat()`` on the
+    response.  It also turns malformed dates into a 400 instead of a 500.
+    """
+    raw = data.get(field)
+    if raw in (None, ""):
+        if required:
+            return None, JsonResponse({"error": f"{label} is required."}, status=400)
+        return None, None
+
+    parsed = parse_date(str(raw).strip())
+    if parsed is None:
+        return None, JsonResponse(
+            {"error": f"{label} must be a valid date (YYYY-MM-DD)."},
+            status=400,
+        )
+    return parsed, None
 
 
 def _user_payload(user):
@@ -393,6 +416,40 @@ def api_logout(request):
     return JsonResponse({"authenticated": False})
 
 
+@require_POST
+def api_change_password(request):
+    response = _ensure_authenticated(request)
+    if response is not None:
+        return response
+
+    data = _request_data(request)
+    if data is None:
+        return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+    current_password = str(data.get("current_password") or "")
+    new_password = str(data.get("new_password") or "")
+    confirm_password = str(data.get("confirm_password") or "")
+
+    if not all((current_password, new_password, confirm_password)):
+        return JsonResponse({"error": "Current password, new password, and confirmation are required."}, status=400)
+
+    if not request.user.check_password(current_password):
+        return JsonResponse({"error": "Current password is incorrect."}, status=400)
+
+    if new_password != confirm_password:
+        return JsonResponse({"error": "New password and confirmation do not match."}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({"error": "New password must be at least 8 characters long."}, status=400)
+
+    if current_password == new_password:
+        return JsonResponse({"error": "New password must be different from the current password."}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save(update_fields=["password"])
+    return JsonResponse({"success": True, "message": "Password updated successfully."})
+
+
 @require_http_methods(["GET", "PUT"])
 def api_user_settings(request):
     response = _ensure_authenticated(request)
@@ -527,12 +584,18 @@ def api_flocks(request):
                 farm.location = str(data.get("farmLocation") or "").strip()
                 farm.save(update_fields=["location", "updated_at"])
 
+        acquisition_date, date_error = _read_date(
+            data, "acquisition_date", "Acquisition date", required=True
+        )
+        if date_error is not None:
+            return date_error
+
         payload = {
             "name": str(data.get("name") or "").strip(),
             "poultry_type": str(data.get("poultry_type") or Flock.PoultryType.LAYER),
             "breed": str(data.get("breed") or "").strip(),
             "initial_quantity": data.get("initial_quantity"),
-            "acquisition_date": data.get("acquisition_date"),
+            "acquisition_date": acquisition_date,
             "supplier": str(data.get("supplier") or "").strip(),
             "housing_unit": str(data.get("housing_unit") or "").strip(),
             "purpose": str(data.get("purpose") or Flock.Purpose.EGGS),
@@ -633,7 +696,12 @@ def api_flock_detail(request, flock_id):
         flock.initial_quantity = value
 
     if "acquisition_date" in data:
-        flock.acquisition_date = data["acquisition_date"]
+        acquisition_date, date_error = _read_date(
+            data, "acquisition_date", "Acquisition date", required=True
+        )
+        if date_error is not None:
+            return date_error
+        flock.acquisition_date = acquisition_date
 
     try:
         flock.full_clean()
@@ -666,14 +734,16 @@ def api_egg_production(request):
         except Flock.DoesNotExist:
             return JsonResponse({"error": "Flock not found."}, status=404)
 
-        collection_date = str(data.get("collection_date") or "").strip()
+        collection_date, date_error = _read_date(
+            data, "collection_date", "Collection date", required=True
+        )
+        if date_error is not None:
+            return date_error
+
         eggs_collected = data.get("eggs_collected")
         broken_eggs = data.get("broken_eggs")
         quality_grade = str(data.get("quality_grade") or EggProduction.QualityGrade.GRADE_A).strip()
         notes = str(data.get("notes") or "").strip()
-
-        if not collection_date:
-            return JsonResponse({"error": "Collection date is required."}, status=400)
 
         try:
             total_eggs = int(eggs_collected)
@@ -736,7 +806,12 @@ def api_egg_production_detail(request, egg_id):
         record.flock = flock
 
     if "collection_date" in data:
-        record.collection_date = data["collection_date"]
+        collection_date, date_error = _read_date(
+            data, "collection_date", "Collection date", required=True
+        )
+        if date_error is not None:
+            return date_error
+        record.collection_date = collection_date
 
     if "eggs_collected" in data:
         try:
@@ -786,6 +861,10 @@ def api_feed_items(request):
         if not name:
             return JsonResponse({"error": "Feed item name is required."}, status=400)
 
+        expiry_date, date_error = _read_date(data, "expiry_date", "Expiry date")
+        if date_error is not None:
+            return date_error
+
         payload = {
             "name": name,
             "category": str(data.get("category") or FeedItem.Category.LAYER_MASH),
@@ -795,7 +874,7 @@ def api_feed_items(request):
             "minimum_stock": data.get("minimum_stock", 0),
             "current_stock": data.get("current_stock", 0),
             "supplier": str(data.get("supplier") or "").strip(),
-            "expiry_date": data.get("expiry_date"),
+            "expiry_date": expiry_date,
             "notes": str(data.get("notes") or "").strip(),
         }
 
@@ -838,6 +917,11 @@ def api_feed_stock(request):
         if quantity <= 0:
             return JsonResponse({"error": "Quantity must be greater than zero."}, status=400)
 
+        movement_date, date_error = _read_date(data, "movement_date", "Movement date")
+        if date_error is not None:
+            return date_error
+        movement_date = movement_date or timezone.now().date()
+
         with transaction.atomic():
             item.current_stock = float(item.current_stock) + quantity
             item.unit_cost = unit_cost or item.unit_cost
@@ -849,7 +933,7 @@ def api_feed_stock(request):
                 movement_type=FeedMovement.MovementType.STOCK_IN,
                 quantity=quantity,
                 unit_cost=unit_cost,
-                movement_date=data.get("movement_date") or timezone.now().date().isoformat(),
+                movement_date=movement_date,
                 reference=str(data.get("reference") or "").strip(),
                 notes=str(data.get("notes") or "").strip(),
             )
@@ -898,6 +982,11 @@ def api_feed_stock_out(request):
         if float(item.current_stock) - quantity < 0:
             return JsonResponse({"error": "Insufficient stock available for this issue."}, status=400)
 
+        movement_date, date_error = _read_date(data, "movement_date", "Movement date")
+        if date_error is not None:
+            return date_error
+        movement_date = movement_date or timezone.now().date()
+
         with transaction.atomic():
             item.current_stock = float(item.current_stock) - quantity
             item.save(update_fields=["current_stock", "updated_at"])
@@ -907,7 +996,7 @@ def api_feed_stock_out(request):
                 flock=flock,
                 movement_type=FeedMovement.MovementType.STOCK_OUT,
                 quantity=quantity,
-                movement_date=data.get("movement_date") or timezone.now().date().isoformat(),
+                movement_date=movement_date,
                 reference=str(data.get("reference") or "").strip(),
                 notes=str(data.get("notes") or "").strip(),
             )
@@ -968,6 +1057,11 @@ def api_feed_consumption(request):
         if float(item.current_stock) - quantity < 0:
             return JsonResponse({"error": "Insufficient stock available for this consumption record."}, status=400)
 
+        movement_date, date_error = _read_date(data, "movement_date", "Movement date")
+        if date_error is not None:
+            return date_error
+        movement_date = movement_date or timezone.now().date()
+
         with transaction.atomic():
             item.current_stock = float(item.current_stock) - quantity
             item.save(update_fields=["current_stock", "updated_at"])
@@ -977,7 +1071,7 @@ def api_feed_consumption(request):
                 flock=flock,
                 movement_type=FeedMovement.MovementType.CONSUMPTION,
                 quantity=quantity,
-                movement_date=data.get("movement_date") or timezone.now().date().isoformat(),
+                movement_date=movement_date,
                 reference=str(data.get("reference") or "").strip(),
                 notes=str(data.get("notes") or "").strip(),
             )
@@ -1081,9 +1175,11 @@ def api_health_records(request):
         except Flock.DoesNotExist:
             return JsonResponse({"error": "Flock not found."}, status=404)
 
-        record_date = str(data.get("record_date") or "").strip()
-        if not record_date:
-            return JsonResponse({"error": "Record date is required."}, status=400)
+        record_date, date_error = _read_date(
+            data, "record_date", "Record date", required=True
+        )
+        if date_error is not None:
+            return date_error
 
         temp = data.get("body_temperature")
         try:
@@ -1130,21 +1226,35 @@ def api_health_vaccinations(request):
         if not vaccine_name:
             return JsonResponse({"error": "Vaccine name is required."}, status=400)
 
+        scheduled_date, date_error = _read_date(
+            data, "scheduled_date", "Scheduled date"
+        )
+        if date_error is not None:
+            return date_error
+        due_date, date_error = _read_date(data, "due_date", "Due date")
+        if date_error is not None:
+            return date_error
+        administered_date, date_error = _read_date(
+            data, "administered_date", "Administered date"
+        )
+        if date_error is not None:
+            return date_error
+
         plan = VaccinationPlan.objects.create(
             flock=flock,
             vaccine_name=vaccine_name,
-            scheduled_date=data.get("scheduled_date") or timezone.now().date().isoformat(),
-            due_date=data.get("due_date") or timezone.now().date().isoformat(),
+            scheduled_date=scheduled_date or timezone.now().date(),
+            due_date=due_date or timezone.now().date(),
             status=str(data.get("status") or VaccinationPlan.Status.PENDING),
             administered_by=str(data.get("administered_by") or "").strip(),
             notes=str(data.get("notes") or "").strip(),
         )
 
-        if data.get("administered_date"):
+        if administered_date:
             VaccinationRecord.objects.create(
                 flock=flock,
                 vaccine_name=vaccine_name,
-                administered_date=data.get("administered_date"),
+                administered_date=administered_date,
                 batch_number=str(data.get("batch_number") or "").strip(),
                 administered_by=str(data.get("administered_by") or "").strip(),
                 notes=str(data.get("notes") or "").strip(),
@@ -1185,10 +1295,16 @@ def api_health_diseases(request):
         if not disease_name:
             return JsonResponse({"error": "Disease name is required."}, status=400)
 
+        diagnosis_date, date_error = _read_date(
+            data, "diagnosis_date", "Diagnosis date"
+        )
+        if date_error is not None:
+            return date_error
+
         record = DiseaseCase.objects.create(
             flock=flock,
             disease_name=disease_name,
-            diagnosis_date=data.get("diagnosis_date") or timezone.now().date().isoformat(),
+            diagnosis_date=diagnosis_date or timezone.now().date(),
             severity=str(data.get("severity") or DiseaseCase.Severity.MILD),
             status=str(data.get("status") or DiseaseCase.Status.OPEN),
             symptoms=str(data.get("symptoms") or "").strip(),
@@ -1234,14 +1350,21 @@ def api_health_treatments(request):
             except DiseaseCase.DoesNotExist:
                 return JsonResponse({"error": "Disease case not found."}, status=404)
 
+        start_date, date_error = _read_date(data, "start_date", "Start date")
+        if date_error is not None:
+            return date_error
+        end_date, date_error = _read_date(data, "end_date", "End date")
+        if date_error is not None:
+            return date_error
+
         record = TreatmentRecord.objects.create(
             flock=flock,
             disease_case=disease_case,
             treatment_name=treatment_name,
             medication=str(data.get("medication") or "").strip(),
             dosage=str(data.get("dosage") or "").strip(),
-            start_date=data.get("start_date") or timezone.now().date().isoformat(),
-            end_date=data.get("end_date") or None,
+            start_date=start_date or timezone.now().date(),
+            end_date=end_date,
             status=str(data.get("status") or TreatmentRecord.Status.PENDING),
             veterinarian=str(data.get("veterinarian") or "").strip(),
             notes=str(data.get("notes") or "").strip(),
@@ -1278,9 +1401,16 @@ def api_health_mortality(request):
         except (TypeError, ValueError):
             return JsonResponse({"error": "Deaths and culls must be numeric."}, status=400)
 
+        if deaths < 0 or culls < 0:
+            return JsonResponse({"error": "Deaths and culls cannot be negative."}, status=400)
+
+        record_date, date_error = _read_date(data, "record_date", "Record date")
+        if date_error is not None:
+            return date_error
+
         record = MortalityRecord.objects.create(
             flock=flock,
-            record_date=data.get("record_date") or timezone.now().date().isoformat(),
+            record_date=record_date or timezone.now().date(),
             deaths=deaths,
             culls=culls,
             cause=str(data.get("cause") or "").strip(),
@@ -1312,11 +1442,21 @@ def api_health_schedules(request):
         except Flock.DoesNotExist:
             return JsonResponse({"error": "Flock not found."}, status=404)
 
+        title = str(data.get("title") or "").strip()
+        if not title:
+            return JsonResponse({"error": "Schedule title is required."}, status=400)
+
+        scheduled_for, date_error = _read_date(
+            data, "scheduled_for", "Scheduled date"
+        )
+        if date_error is not None:
+            return date_error
+
         record = HealthSchedule.objects.create(
             flock=flock,
-            title=str(data.get("title") or "").strip(),
+            title=title,
             category=str(data.get("category") or HealthSchedule.Category.CHECKUP),
-            scheduled_for=data.get("scheduled_for") or timezone.now().date().isoformat(),
+            scheduled_for=scheduled_for or timezone.now().date(),
             status=str(data.get("status") or HealthSchedule.Status.PENDING),
             assigned_to=str(data.get("assigned_to") or "").strip(),
             notes=str(data.get("notes") or "").strip(),
@@ -1351,9 +1491,13 @@ def api_health_veterinary_visits(request):
         if not veterinarian_name:
             return JsonResponse({"error": "Veterinarian name is required."}, status=400)
 
+        visit_date, date_error = _read_date(data, "visit_date", "Visit date")
+        if date_error is not None:
+            return date_error
+
         record = VeterinaryVisit.objects.create(
             flock=flock,
-            visit_date=data.get("visit_date") or timezone.now().date().isoformat(),
+            visit_date=visit_date or timezone.now().date(),
             veterinarian_name=veterinarian_name,
             purpose=str(data.get("purpose") or "").strip(),
             findings=str(data.get("findings") or "").strip(),

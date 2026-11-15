@@ -18,12 +18,12 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 function PublicLayout() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[linear-gradient(rgba(16,35,27,0.55),rgba(16,35,27,0.55)),url('/images/dashboardbackground.png')] bg-cover bg-center bg-fixed">
       <Header />
-      <div className="flex-1">
+      <div className="flex flex-1 flex-col">
         <Outlet />
       </div>
-      <footer className="mx-auto flex min-h-[59px] w-[min(1200px,calc(100%-64px))] items-center justify-between border-t border-[#e8e8de] text-[10px] text-[#969b91] max-sm:w-[calc(100%-36px)]">
+      <footer className="mx-auto flex min-h-[46px] w-[min(1200px,calc(100%-64px))] items-center justify-between border-t border-white/15 text-[10px] text-white/50 max-sm:w-[calc(100%-36px)]">
         <span>© {CURRENT_YEAR} MkulimaFlow</span>
         <span>Growing better, together.</span>
       </footer>

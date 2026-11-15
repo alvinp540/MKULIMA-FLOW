@@ -24,18 +24,20 @@ export default function Header() {
   }
 
   return (
-    <header className="relative z-10 h-[78px] border-b border-[#e8e8de] bg-[#fbfaf6]/95">
-      <div className="mx-auto flex h-full w-[min(1200px,calc(100%-64px))] items-center justify-between max-sm:w-[calc(100%-36px)]">
-        <Brand compact />
-        <nav className="flex items-center gap-6 max-sm:gap-3" aria-label="Account navigation">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[linear-gradient(105deg,rgba(12,37,26,0.95),rgba(24,74,43,0.75)),url('/images/dashboardbackground.png')] bg-cover bg-center text-white shadow-[0_10px_30px_rgba(9,28,19,0.2)] backdrop-blur-md">
+      <div className="mx-auto flex min-h-[77px] h-full w-[min(1200px,calc(100%-64px))] items-center justify-between gap-3 max-sm:w-[calc(100%-36px)]">
+        <Brand light compact />
+        <nav className="flex items-center gap-2 sm:gap-4" aria-label="Account navigation">
           {user ? (
             <>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#4b574a]">
-                <span className="size-2 rounded-full bg-[#5da77b] shadow-[0_0_0_3px_rgba(93,167,123,0.13)]" />
-                <span className="max-w-[110px] truncate">{user.username}</span>
+              <span className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1.5 pl-2 pr-3.5 text-[12px] font-semibold text-white/85 backdrop-blur-md sm:inline-flex">
+                <span aria-hidden="true" className="grid size-7 place-items-center rounded-full bg-[linear-gradient(135deg,#b8d28e,#6e9a5b)] text-[10px] font-bold text-[#173325] ring-2 ring-white/20">
+                  {user.username.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="max-w-[120px] truncate">{user.username}</span>
               </span>
               <button
-                className="min-h-[41px] rounded-[10px] border border-[#d7dfd5] px-[17px] text-[13px] font-bold text-[#28583c] transition hover:border-[#346d4b] hover:bg-[#f0f4ed] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#346d4b]/40 disabled:cursor-wait disabled:opacity-70 max-sm:min-h-[37px] max-sm:px-3 max-sm:text-[11px]"
+                className="inline-flex min-h-[39px] items-center rounded-full border border-white/20 bg-white/10 px-4 text-[12px] font-semibold text-white backdrop-blur-md transition hover:bg-white/15 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#b8d28e]/50 disabled:cursor-wait disabled:opacity-60 max-sm:min-h-[37px] max-sm:px-3 max-sm:text-[11px]"
                 disabled={busy}
                 onClick={handleSignOut}
                 type="button"
@@ -45,11 +47,11 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link className="text-sm font-semibold text-[#4b574a] no-underline transition hover:text-[#346d4b]" to="/login">
+              <Link className="rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-white/80 no-underline transition hover:bg-white/10 hover:text-white" to="/login">
                 Log in
               </Link>
               <Link
-                className="inline-flex min-h-[41px] items-center rounded-[10px] bg-[#346d4b] px-[17px] text-[13px] font-bold text-white no-underline shadow-[0_7px_16px_rgba(34,88,59,0.13)] transition hover:-translate-y-px hover:bg-[#28583c] max-sm:min-h-[37px] max-sm:px-3 max-sm:text-[11px]"
+                className="inline-flex min-h-[39px] items-center rounded-full bg-[#b8d28e] px-4 text-[12px] font-bold text-[#173325] no-underline shadow-[0_7px_16px_rgba(9,28,19,0.25)] transition hover:-translate-y-px hover:bg-[#c9e0a3] max-sm:min-h-[37px] max-sm:px-3 max-sm:text-[11px]"
                 to="/signup"
               >
                 Create account
@@ -59,7 +61,7 @@ export default function Header() {
         </nav>
       </div>
       {error && (
-        <div className="absolute right-8 top-full rounded-lg border border-[#e8c1ad] bg-[#fff6f0] px-3.5 py-2.5 text-[13px] text-[#94451f]" role="alert">
+        <div className="absolute right-8 top-full mt-2 rounded-xl border border-white/15 bg-[#2a1c12]/95 px-3.5 py-2.5 text-[13px] text-[#f3c7a9] shadow-[0_12px_30px_rgba(9,28,19,0.35)] backdrop-blur-md" role="alert">
           {error}
         </div>
       )}
