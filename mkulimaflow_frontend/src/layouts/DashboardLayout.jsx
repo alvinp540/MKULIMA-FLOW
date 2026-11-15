@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
   Bell,
@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
+import getInitials from '../utils/initials'
 
 const navigation = [
   { label: 'Overview', icon: LayoutDashboard, path: '/' },
@@ -24,11 +25,20 @@ const navigation = [
 ]
 
 function Sidebar({ open, onClose }) {
+  const { pathname } = useLocation()
+
   return (
     <>
-      
+      <button
+        aria-hidden={!open}
+        aria-label="Close navigation"
+        className={`fixed inset-0 z-30 bg-[#08160f]/60 backdrop-blur-xs transition-opacity duration-200 lg:hidden ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={onClose}
+        tabIndex={open ? 0 : -1}
+        type="button"
+      />
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[linear-gradient(rgba(24,74,43,0.9),rgba(24,74,43,0.9)),url('/images/dashboardbackground.png')] bg-cover bg-center text-white transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-[77px] items-center justify-between border-b border-grey/10 px-6">
+        <div className="flex h-[77px] items-center justify-between border-b border-white/10 px-6">
           <Link aria-label="MkulimaFlow home" className="flex items-center gap-2.5 no-underline" to="/">
             <img alt="" className="h-10 w-10 rounded-xl object-cover" src="/images/mkulimaflow-logo.png" />
             <span className="font-display text-[16px] font-bold tracking-[-0.4px] text-white">
@@ -45,46 +55,23 @@ function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        <nav aria-label="Farm management" className="flex-1 px-4 py-7">
+        <nav aria-label="Farm management" className="flex-1 overflow-y-auto px-4 py-7">
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Farm management</p>
           <ul className="space-y-1">
-            {navigation.map(({ label, icon: Icon, path }) => {
-              const isOverview = path === '/'
-              const isWorkingLink = ['/', '/flocks', '/egg-production', '/feed', '/healthcare'].includes(path)
-              const isActive = window.location.pathname === path || (isOverview && window.location.pathname === '/')
-
-              if (isWorkingLink) {
-                return (
-                  <li key={label}>
-                    <NavLink
-                      className={({ isActive: navIsActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline ${navIsActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
-                      onClick={onClose}
-                      to={path}
-                    >
-                      <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
-                      {label}
-                      {isActive ? <span className="ml-auto size-1.5 rounded-full bg-[#b8d28e]" /> : null}
-                    </NavLink>
-                  </li>
-                )
-              }
-
-              return (
-                <li key={label}>
-                  <button
-                    aria-disabled="true"
-                    className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-white/65"
-                    disabled
-                    title={`${label} — coming soon`}
-                    type="button"
-                  >
-                    <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
-                    {label}
-                    <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide text-white/35">Soon</span>
-                  </button>
-                </li>
-              )
-            })}
+            {navigation.map(({ label, icon: Icon, path }) => (
+              <li key={path}>
+                <NavLink
+                  className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline transition ${isActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
+                  end={path === '/'}
+                  onClick={onClose}
+                  to={path}
+                >
+                  <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
+                  {label}
+                  {pathname === path ? <span className="ml-auto size-1.5 rounded-full bg-[#b8d28e]" /> : null}
+                </NavLink>
+              </li>
+            ))}
           </ul>
 
           <p className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Workspace</p>
@@ -123,7 +110,7 @@ export default function DashboardLayout() {
     }
   }
 
-  const initials = user?.username?.slice(0, 2).toUpperCase() || 'MF'
+  const initials = getInitials(user?.username)
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#27352c] lg:flex">
