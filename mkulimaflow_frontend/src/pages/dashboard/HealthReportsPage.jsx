@@ -143,8 +143,8 @@ export default function HealthReportsPage() {
                     <p className="mt-3 text-3xl font-bold tracking-[-0.8px] text-[#1f3229]">{value}</p>
                     <p className="mt-2 text-[11px] text-[#65736a]">{helper}</p>
                   </div>
-                  <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${tone === 'emerald' ? 'bg-[#ebf7e6] text-[#2a7b3c]' : tone === 'amber' ? 'bg-[#fff1d7] text-[#b97917]' : tone === 'sky' ? 'bg-[#eaf4ff] text-[#1d6db5]' : 'bg-[#ffe8ea] text-[#b33a4f]'}`}>
-                    <Icon className="size-5" />
+                  <span className={`grid size-11 shrink-0 place-items-center rounded-2xl transition ${tone === 'emerald' ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/25 shadow-sm shadow-emerald-500/15' : tone === 'amber' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25 shadow-sm shadow-amber-500/15' : tone === 'sky' ? 'bg-sky-50 text-sky-600 ring-1 ring-sky-500/25 shadow-sm shadow-sky-500/15' : 'bg-rose-50 text-rose-600 ring-1 ring-rose-500/25 shadow-sm shadow-rose-500/15'}`}>
+                    <Icon className="size-5" strokeWidth={2.2} />
                   </span>
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function HealthReportsPage() {
                       <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-[#73807a]">{item.label}</p>
                       <p className="mt-1 text-base font-semibold text-[#1d332a]">{item.value}</p>
                     </div>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[1.2px] ${item.tone === 'emerald' ? 'bg-[#ebf7e6] text-[#2a7b3c]' : item.tone === 'amber' ? 'bg-[#fff1d7] text-[#b97917]' : 'bg-[#eaf4ff] text-[#1d6db5]'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[1.2px] ${item.tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : item.tone === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-sky-50 text-sky-600'}`}>
                       {item.tone}
                     </span>
                   </div>

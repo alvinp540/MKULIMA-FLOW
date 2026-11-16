@@ -409,8 +409,8 @@ export default function HealthcarePage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[1.4px] text-[#7b857f]">{label}</p>
                 <p className="mt-3 text-3xl font-bold tracking-[-0.8px] text-[#1f3229]">{value}</p>
               </div>
-              <span className={`grid size-11 place-items-center rounded-2xl ${tone === 'emerald' ? 'bg-[#ebf7e6] text-[#2a7b3c]' : tone === 'amber' ? 'bg-[#fff1d7] text-[#b97917]' : tone === 'sky' ? 'bg-[#eaf4ff] text-[#1d6db5]' : 'bg-[#ffe8ea] text-[#b33a4f]'}`}>
-                <Icon className="size-5" />
+              <span className={`grid size-11 place-items-center rounded-2xl transition ${tone === 'emerald' ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/25 shadow-sm shadow-emerald-500/15' : tone === 'amber' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25 shadow-sm shadow-amber-500/15' : tone === 'sky' ? 'bg-sky-50 text-sky-600 ring-1 ring-sky-500/25 shadow-sm shadow-sky-500/15' : 'bg-rose-50 text-rose-600 ring-1 ring-rose-500/25 shadow-sm shadow-rose-500/15'}`}>
+                <Icon className="size-5" strokeWidth={2.2} />
               </span>
             </div>
           </div>

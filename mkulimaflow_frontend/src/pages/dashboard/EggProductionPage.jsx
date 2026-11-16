@@ -201,10 +201,10 @@ export default function EggProductionPage() {
           <article className="rounded-2xl border border-[#e9ece5] bg-white p-5 shadow-[0_12px_28px_rgba(18,40,31,0.04)]" key={label}>
             <div className="flex items-center justify-between">
               <span className={`grid size-10 place-items-center rounded-xl ${
-                tone === 'green' ? 'bg-[#edf4e7] text-[#4f7f4d]' :
-                tone === 'amber' ? 'bg-[#f7efdb] text-[#9b7a32]' :
-                tone === 'rose' ? 'bg-[#fbe9e6] text-[#a96456]' :
-                'bg-[#eef0ec] text-[#5c625d]'
+                tone === 'green' ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/25 shadow-sm shadow-emerald-500/15' :
+                tone === 'amber' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25 shadow-sm shadow-amber-500/15' :
+                tone === 'rose' ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-500/25 shadow-sm shadow-rose-500/15' :
+                'bg-slate-50 text-slate-500 ring-1 ring-slate-400/25'
               }`}>
                 <Egg className="size-4" />
               </span>

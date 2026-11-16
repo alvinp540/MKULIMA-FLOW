@@ -17,11 +17,11 @@ import useAuth from '../hooks/useAuth'
 import getInitials from '../utils/initials'
 
 const navigation = [
-  { label: 'Overview', icon: LayoutDashboard, path: '/' },
-  { label: 'Flock', icon: Activity, path: '/flocks' },
-  { label: 'Egg production', icon: Egg, path: '/egg-production' },
-  { label: 'Feed inventory', icon: Package, path: '/feed' },
-  { label: 'Health & care', icon: ShieldCheck, path: '/healthcare' },
+  { label: 'Overview', icon: LayoutDashboard, path: '/', iconTone: 'text-emerald-300', activeBg: 'bg-emerald-400/20 text-emerald-200' },
+  { label: 'Flock', icon: Activity, path: '/flocks', iconTone: 'text-lime-300', activeBg: 'bg-lime-400/20 text-lime-200' },
+  { label: 'Egg production', icon: Egg, path: '/egg-production', iconTone: 'text-amber-300', activeBg: 'bg-amber-400/20 text-amber-200' },
+  { label: 'Feed inventory', icon: Package, path: '/feed', iconTone: 'text-sky-300', activeBg: 'bg-sky-400/20 text-sky-200' },
+  { label: 'Health & care', icon: ShieldCheck, path: '/healthcare', iconTone: 'text-rose-300', activeBg: 'bg-rose-400/20 text-rose-200' },
 ]
 
 function Sidebar({ open, onClose }) {
@@ -58,17 +58,19 @@ function Sidebar({ open, onClose }) {
         <nav aria-label="Farm management" className="flex-1 overflow-y-auto px-4 py-7">
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Farm management</p>
           <ul className="space-y-1">
-            {navigation.map(({ label, icon: Icon, path }) => (
+            {navigation.map(({ label, icon: Icon, path, iconTone, activeBg }) => (
               <li key={path}>
                 <NavLink
-                  className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline transition ${isActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
+                  className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline transition ${isActive ? `${activeBg} shadow-sm ring-1 ring-white/10` : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
                   end={path === '/'}
                   onClick={onClose}
                   to={path}
                 >
-                  <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
+                  <span className={`grid size-7 place-items-center rounded-lg transition ${pathname === path ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'}`}>
+                    <Icon aria-hidden="true" size={17} strokeWidth={2.2} className={pathname === path ? 'text-white' : iconTone} />
+                  </span>
                   {label}
-                  {pathname === path ? <span className="ml-auto size-1.5 rounded-full bg-[#b8d28e]" /> : null}
+                  {pathname === path ? <span className="ml-auto size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> : null}
                 </NavLink>
               </li>
             ))}
@@ -76,12 +78,15 @@ function Sidebar({ open, onClose }) {
 
           <p className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[1.4px] text-white/40">Workspace</p>
           <NavLink
-            className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline ${isActive ? 'bg-[#b8d28e]/15 text-[#d3e6b2]' : 'text-white/75 hover:bg-white/5 hover:text-white'}`}
+            className={({ isActive }) => `group flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold no-underline transition ${isActive ? 'bg-teal-400/20 text-teal-200 shadow-sm ring-1 ring-white/10' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
             onClick={onClose}
             to="/settings"
           >
-            <Settings aria-hidden="true" size={18} strokeWidth={1.8} />
+            <span className={`grid size-7 place-items-center rounded-lg transition ${pathname === '/settings' ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'}`}>
+              <Settings aria-hidden="true" size={17} strokeWidth={2.2} className={pathname === '/settings' ? 'text-white' : 'text-teal-300'} />
+            </span>
             Settings
+            {pathname === '/settings' ? <span className="ml-auto size-2 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.8)]" /> : null}
           </NavLink>
         </nav>
 
@@ -130,8 +135,8 @@ export default function DashboardLayout() {
               <div className="min-w-0">
                 <span className="hidden text-[10px] font-semibold uppercase tracking-[1.4px] text-white/55 sm:block">Your workspace</span>
                 <label className="mt-1 flex max-w-[260px] cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1.5 pl-2 pr-3 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition hover:bg-white/15">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#b8d28e]/20 text-[#d7e9bc]">
-                    <Activity aria-hidden="true" size={15} />
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-400/25 text-emerald-300 ring-1 ring-emerald-400/40">
+                    <Activity aria-hidden="true" size={15} strokeWidth={2.2} />
                   </span>
                   <select
                     aria-label="Farm context"
@@ -142,23 +147,23 @@ export default function DashboardLayout() {
                     <option className="text-[#1f3028]" value="Main farm">Main farm</option>
                     <option className="text-[#1f3028]" value="North farm">North farm</option>
                   </select>
-                  <ChevronDown aria-hidden="true" className="pointer-events-none -ml-1 shrink-0 text-white/60" size={15} />
+                  <ChevronDown aria-hidden="true" className="pointer-events-none -ml-1 shrink-0 text-white/80" size={15} />
                 </label>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <span className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-md md:inline-flex">
-                <span className="size-1.5 rounded-full bg-[#b8d28e] shadow-[0_0_0_3px_rgba(184,210,142,0.15)]" />
+                <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
                 Farm workspace
               </span>
               <button
                 aria-label="Notifications"
-                className="relative grid size-10 place-items-center rounded-full border border-white/10 bg-white/5 text-white/85 transition hover:bg-white/10 hover:text-white"
+                className="group relative grid size-10 place-items-center rounded-full border border-white/10 bg-white/5 text-white/90 transition hover:bg-white/10 hover:text-white"
                 type="button"
               >
-                <Bell aria-hidden="true" size={18} strokeWidth={1.8} />
-                <span className="absolute right-[9px] top-[9px] size-2 rounded-full border-2 border-[#1b4a31] bg-[#d68c54]" />
+                <Bell aria-hidden="true" size={18} strokeWidth={2} className="text-amber-300 transition group-hover:scale-110" />
+                <span className="absolute right-[9px] top-[9px] size-2 rounded-full border-2 border-[#1b4a31] bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.9)]" />
               </button>
               <div className="hidden h-8 w-px bg-white/15 sm:block" />
               <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-2 backdrop-blur-md">
@@ -183,7 +188,7 @@ export default function DashboardLayout() {
                   onClick={handleSignOut}
                   type="button"
                 >
-                  <LogOut aria-hidden="true" size={15} />
+                  <LogOut aria-hidden="true" size={15} className="text-rose-300" />
                 </button>
               </div>
             </div>

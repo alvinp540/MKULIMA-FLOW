@@ -12,10 +12,10 @@ import useAuth from '../../hooks/useAuth'
 import { csrfFetch } from '../../services/authService'
 
 const iconStyles = {
-  green: 'bg-[#edf4e7] text-[#52794b]',
-  amber: 'bg-[#fbf2df] text-[#a47b35]',
-  blue: 'bg-[#eaf1f5] text-[#587b91]',
-  rose: 'bg-[#f8ece8] text-[#a56a58]',
+  green: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/25 shadow-sm shadow-emerald-500/15',
+  amber: 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25 shadow-sm shadow-amber-500/15',
+  blue: 'bg-sky-50 text-sky-600 ring-1 ring-sky-500/25 shadow-sm shadow-sky-500/15',
+  rose: 'bg-rose-50 text-rose-600 ring-1 ring-rose-500/25 shadow-sm shadow-rose-500/15',
 }
 
 const numberFormat = new Intl.NumberFormat('en')
@@ -190,8 +190,8 @@ export default function HomePage() {
     <div className="space-y-7">
       <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-[#223d2f]">
-            <CalendarDays aria-hidden="true" size={14} />
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-800">
+            <CalendarDays aria-hidden="true" size={15} className="text-emerald-600" />
             {date}
           </div>
           <h1 className="font-display text-[clamp(25px,3vw,34px)] font-bold leading-tight tracking-[-1.2px] text-[#26352b]">
@@ -213,8 +213,8 @@ export default function HomePage() {
         {metrics.map(({ label, value, detail, icon: Icon, tone }) => (
           <article className="rounded-2xl border border-[#e9ece5] bg-white p-5 shadow-[0_2px_8px_rgba(34,54,39,0.025)]" key={label}>
             <div className="flex items-start justify-between">
-              <span className={`grid size-10 place-items-center rounded-xl ${iconStyles[tone]}`}>
-                <Icon aria-hidden="true" size={19} strokeWidth={1.8} />
+              <span className={`grid size-11 place-items-center rounded-xl transition duration-150 ${iconStyles[tone]}`}>
+                <Icon aria-hidden="true" size={20} strokeWidth={2.2} />
               </span>
             </div>
             <p className="mt-5 text-[12px] font-medium text-[#78857b]">{label}</p>
@@ -264,10 +264,10 @@ export default function HomePage() {
         </article>
 
         <article className="flex min-h-[300px] flex-col rounded-2xl bg-[#1f3b2d] p-6 text-white sm:p-7">
-          <span className="grid size-10 place-items-center rounded-xl bg-white/10 text-[#c8dda6]">
-            <ShieldCheck aria-hidden="true" size={20} />
+          <span className="grid size-11 place-items-center rounded-xl bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.3)]">
+            <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.2} />
           </span>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[1.4px] text-[#c8dda6]">Farm health</p>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[1.4px] text-emerald-300">Farm health</p>
           <h2 className="mt-2 max-w-[280px] font-display text-[21px] font-semibold leading-snug tracking-[-0.5px]">
             {loading
               ? 'Checking your flock health…'

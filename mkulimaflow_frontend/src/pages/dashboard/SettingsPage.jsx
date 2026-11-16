@@ -212,8 +212,8 @@ export default function SettingsPage() {
         <section className="space-y-7">
           <div className="rounded-[24px] border border-[#e7ebe4] bg-white p-5 shadow-[0_12px_28px_rgba(18,32,25,0.04)]">
             <div className="mb-4 flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-[#ebf7e6] text-[#2a7b3c]">
-                <UserRound className="size-5" />
+              <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/25 shadow-sm shadow-emerald-500/15">
+                <UserRound className="size-5" strokeWidth={2.2} />
               </span>
               <h2 className="text-lg font-semibold text-[#1d332a]">Profile</h2>
             </div>
