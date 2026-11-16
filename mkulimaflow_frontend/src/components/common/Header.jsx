@@ -36,6 +36,12 @@ export default function Header() {
             About
           </NavLink>
           <NavLink
+            className={({ isActive }) => `rounded-full px-2.5 py-1.5 text-[13px] font-semibold no-underline transition hover:bg-white/10 hover:text-white max-sm:hidden ${isActive ? 'bg-white/10 text-white' : 'text-white/80'}`}
+            to="/testimonials"
+          >
+            Testimonials
+          </NavLink>
+          <NavLink
             className={({ isActive }) => `rounded-full px-2.5 py-1.5 text-[13px] font-semibold no-underline transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-white/10 text-white' : 'text-white/80'}`}
             to="/pricing"
           >

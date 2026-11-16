@@ -1,17 +1,25 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   BadgePercent,
   CalendarCheck,
   Check,
-  CreditCard,
   Crown,
   Feather,
   RefreshCw,
+  Smartphone,
   Sparkles,
   Sprout,
 } from 'lucide-react'
+import PaymentCheckoutModal from '../../components/payments/PaymentCheckoutModal'
 import SiteFooter from '../../components/common/SiteFooter'
+import {
+  FALLBACK_PAYMENT_PLANS,
+  FALLBACK_PAYMENT_METHODS,
+  formatKes,
+  getPaymentConfig,
+} from '../../services/paymentService'
 
 const PLANS = [
   {
@@ -29,6 +37,7 @@ const PLANS = [
     ],
     cta: 'Start free trial',
     note: 'No payment details needed.',
+    payPlan: null,
   },
   {
     name: 'Simple',
@@ -45,6 +54,7 @@ const PLANS = [
     ],
     cta: 'Choose Simple',
     note: 'Billed monthly. Cancel anytime.',
+    payPlan: 'simple-monthly',
   },
   {
     name: 'Pro',
@@ -62,6 +72,7 @@ const PLANS = [
     ],
     cta: 'Choose Pro',
     note: 'Billed monthly. Cancel anytime.',
+    payPlan: 'pro-monthly',
     featured: true,
   },
   {
@@ -81,6 +92,7 @@ const PLANS = [
     ],
     cta: 'Pay yearly',
     note: 'One payment covers 12 months.',
+    payPlan: 'simple-yearly',
     annual: true,
   },
 ]
@@ -91,8 +103,12 @@ const FAQS = [
     answer: 'You get full access to every module for 30 days, with no card required. Choose a paid plan whenever you are ready — your records stay exactly where they are.',
   },
   {
+    question: 'How do I pay?',
+    answer: 'Choose a paid plan and pick M-Pesa, Visa, or PayPal at checkout. With M-Pesa you approve an STK Push prompt on your phone; with Visa or PayPal you confirm the payment in USD and get a receipt by email.',
+  },
+  {
     question: 'How does yearly billing work?',
-    answer: 'Pay once for 12 months and get 30% off the monthly price. Simple works out to $168 per year and Pro to $252 per year, instead of $240 and $360.',
+    answer: 'Pay once for 12 months and get 30% off the monthly price. Simple works out to $168 per year and Pro to $252 per year, instead of $240 and $360. Pay in Kenyan shillings with M-Pesa or in USD with Visa or PayPal.',
   },
   {
     question: 'Can I switch or cancel later?',
@@ -100,19 +116,60 @@ const FAQS = [
   },
   {
     question: 'Are there any hidden fees?',
-    answer: 'No. The plan price is the whole price, in USD. Applicable taxes may be added at checkout depending on your location.',
+    answer: 'No. Prices are set in USD. M-Pesa payments are converted to Kenyan shillings at checkout, and the exact KES amount is always shown before you approve the STK Push prompt.',
   },
 ]
 
 const GUARANTEES = [
-  { icon: CreditCard, title: 'Secure checkout', detail: 'Card payments handled securely.' },
+  {
+    icon: Smartphone,
+    title: 'M-Pesa, Visa & PayPal',
+    detail: 'Pay in KES or USD, whichever suits you.',
+  },
   { icon: RefreshCw, title: 'Switch anytime', detail: 'Change plans or billing as you grow.' },
   { icon: CalendarCheck, title: '30-day trial', detail: 'Try everything before you pay.' },
 ]
 
 const eyebrowClass = 'text-[10px] font-extrabold uppercase tracking-[2px] text-[#b8d28e]'
 
+function planCtaClass(featured, annual) {
+  return `mt-6 inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-[12.5px] font-bold no-underline transition hover:-translate-y-0.5 ${
+    featured
+      ? 'bg-[#b8d28e] text-[#173325] shadow-[0_10px_26px_rgba(9,28,19,0.3)] hover:bg-[#c9e0a3]'
+      : annual
+        ? 'bg-[#d8c77a] text-[#2c2410] hover:bg-[#e6d792]'
+        : 'border border-white/20 bg-white/[0.06] text-white/85 backdrop-blur-md hover:border-white/35 hover:bg-white/[0.11] hover:text-white'
+  }`
+}
+
 export default function PricingPage() {
+  const [paymentConfig, setPaymentConfig] = useState(null)
+  const [checkoutPlan, setCheckoutPlan] = useState(null)
+
+  useEffect(() => {
+    let active = true
+
+    getPaymentConfig()
+      .then((data) => {
+        if (active) setPaymentConfig(data)
+      })
+      .catch(() => {
+        if (active) setPaymentConfig(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const paymentPlans = paymentConfig?.plans?.length
+    ? paymentConfig.plans
+    : FALLBACK_PAYMENT_PLANS
+  const paymentMethods = paymentConfig?.methods?.length
+    ? paymentConfig.methods
+    : FALLBACK_PAYMENT_METHODS
+  const plansByKey = Object.fromEntries(paymentPlans.map((plan) => [plan.key, plan]))
+
   return (
     <>
       <main className="relative z-10 flex-1">
@@ -139,7 +196,7 @@ export default function PricingPage() {
               </p>
 
               <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[11.5px] text-white/55">
-                {['30-day free trial', 'Cancel anytime', 'Prices in USD'].map((item) => (
+                {['30-day free trial', 'Cancel anytime', 'M-Pesa, Visa & PayPal'].map((item) => (
                   <li className="inline-flex items-center gap-1.5" key={item}>
                     <Check aria-hidden="true" className="text-[#b8d28e]" size={13} strokeWidth={2.6} />
                     {item}
@@ -152,7 +209,7 @@ export default function PricingPage() {
 
         <section aria-label="Pricing plans" className="mx-auto w-[min(1200px,calc(100%-64px))] pb-12 max-sm:w-[calc(100%-36px)]">
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {PLANS.map(({ name, icon: Icon, price, period, subline, tagline, badge, features, cta, note, featured, annual }) => (
+            {PLANS.map(({ name, icon: Icon, price, period, subline, tagline, badge, features, cta, note, featured, annual, payPlan }) => (
               <article
                 className={`relative flex flex-col rounded-[24px] border p-6 backdrop-blur-md transition duration-200 hover:-translate-y-1 ${
                   featured
@@ -198,6 +255,11 @@ export default function PricingPage() {
                     </span>
                     <span className="text-[11px] font-medium text-white/50">{period}</span>
                   </div>
+                  {payPlan && plansByKey[payPlan] && (
+                    <p className="mt-1 text-[10.5px] font-medium text-white/45">
+                      ≈ {formatKes(plansByKey[payPlan].amount_kes)} via M-Pesa
+                    </p>
+                  )}
                   {subline && <p className="mt-1.5 text-[10.5px] text-white/45">{subline}</p>}
                 </div>
 
@@ -215,31 +277,68 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <Link
-                  className={`mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-4 text-[12.5px] font-bold no-underline transition hover:-translate-y-0.5 ${
-                    featured
-                      ? 'bg-[#b8d28e] text-[#173325] shadow-[0_10px_26px_rgba(9,28,19,0.3)] hover:bg-[#c9e0a3]'
-                      : annual
-                        ? 'bg-[#d8c77a] text-[#2c2410] hover:bg-[#e6d792]'
-                        : 'border border-white/20 bg-white/[0.06] text-white/85 backdrop-blur-md hover:border-white/35 hover:bg-white/[0.11] hover:text-white'
-                  }`}
-                  to="/signup"
-                >
-                  {cta}
-                  <ArrowRight aria-hidden="true" size={13} />
-                </Link>
+                {payPlan ? (
+                  <button
+                    className={planCtaClass(featured, annual)}
+                    onClick={() => setCheckoutPlan(payPlan)}
+                    type="button"
+                  >
+                    {cta}
+                    <ArrowRight aria-hidden="true" size={13} />
+                  </button>
+                ) : (
+                  <Link className={planCtaClass(featured, annual)} to="/signup">
+                    {cta}
+                    <ArrowRight aria-hidden="true" size={13} />
+                  </Link>
+                )}
                 <p className="mt-2.5 text-center text-[10px] text-white/40">{note}</p>
               </article>
             ))}
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 backdrop-blur-md">
-            <p className="text-center text-[11.5px] leading-[1.7] text-white/55">
-              <span className="font-semibold text-[#c8e0a1]">Yearly billing:</span>
-              {' '}
-              pay once for 12 months and save 30% on either paid plan — Simple $168/year,
-              Pro $252/year. Monthly plans stay flexible and can be cancelled anytime.
-            </p>
+          <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 backdrop-blur-md">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[12px] font-semibold text-white">Choose how you pay</p>
+                {paymentConfig?.demo_mode && (
+                  <span className="rounded-full border border-[#e8c56a]/30 bg-[#e8c56a]/12 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#f0dca4]">
+                    Demo mode
+                  </span>
+                )}
+              </div>
+              <ul className="mt-2.5 flex flex-wrap gap-2">
+                {paymentMethods.map((method) => (
+                  <li
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10.5px] font-semibold ${
+                      method.enabled
+                        ? 'border-[#b8d28e]/30 bg-[#b8d28e]/10 text-[#d7e9b8]'
+                        : 'border-white/10 bg-white/[0.03] text-white/35'
+                    }`}
+                    key={method.key}
+                  >
+                    <Check aria-hidden="true" size={11} strokeWidth={2.6} />
+                    {method.label}
+                    <span className="font-medium text-white/40">{method.currency}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2.5 text-[11px] leading-[1.6] text-white/50">
+                Pay in Kenyan shillings with M-Pesa, or in USD with Visa or PayPal.
+                {paymentConfig?.demo_mode &&
+                  ' Demo mode is on: no real money will be charged until gateway credentials are configured.'}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 backdrop-blur-md">
+              <p className="text-[11.5px] leading-[1.7] text-white/55">
+                <span className="font-semibold text-[#c8e0a1]">Yearly billing:</span>
+                {' '}
+                pay once for 12 months and save 30% on either paid plan — Simple
+                $168/year, Pro $252/year. Monthly plans stay flexible and can be
+                cancelled anytime.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -311,6 +410,15 @@ export default function PricingPage() {
           </div>
         </section>
       </main>
+
+      <PaymentCheckoutModal
+        config={paymentConfig}
+        initialPlan={checkoutPlan}
+        key={checkoutPlan ?? 'closed'}
+        onClose={() => setCheckoutPlan(null)}
+        open={Boolean(checkoutPlan)}
+        plans={paymentPlans}
+      />
 
       <SiteFooter />
     </>

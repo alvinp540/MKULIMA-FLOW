@@ -6,6 +6,7 @@ import useAuth from './hooks/useAuth'
 import LoadingPage from './pages/LoadingPage'
 import LandingPage from './pages/public/LandingPage'
 import PricingPage from './pages/public/PricingPage'
+import TestimonialsPage from './pages/public/TestimonialsPage'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import HomePage from './pages/dashboard/HomePage'
@@ -54,6 +55,7 @@ export default function App() {
         <Route element={<PublicLayout />}>
           <Route path="about" element={<LandingPage />} />
           <Route path="pricing" element={<PricingPage />} />
+          <Route path="testimonials" element={<TestimonialsPage />} />
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
         </Route>

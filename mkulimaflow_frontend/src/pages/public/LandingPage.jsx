@@ -93,7 +93,7 @@ export default function LandingPage() {
         >
           <source src="/videos/farm-background.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-[linear-gradient(165deg,rgba(8,25,17,0.82),rgba(7,22,15,0.9))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(165deg,rgba(0,0,0,0.82),rgba(0,0,0,0.9))]" />
         <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_0%,rgba(47,122,78,0.32),transparent_90%)]" />
       </div>
 
