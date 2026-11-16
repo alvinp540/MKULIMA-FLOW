@@ -11,7 +11,7 @@ export default function AuthLayout({ eyebrow, title, description, children, foot
             <div className="absolute inset-0 bg-black/10" />
 
             <div className="relative z-[1] flex min-h-[690px] flex-col p-[39px_42px] max-lg:p-8">
-              <Brand light to="/about" />
+              <Brand light />
               <div className="mt-[85px] w-[min(390px,100%)]">
                 <span className="text-[20px] font-extrabold tracking-[0.08em] text-[#bdd298]">GROW TOGETHER</span>
                 <h1 className="mb-[15px] mt-[17px] font-display text-[clamp(36px,4vw,52px)] font-semibold leading-[1.08] tracking-[-2.2px] text-white">
@@ -35,7 +35,7 @@ export default function AuthLayout({ eyebrow, title, description, children, foot
           <section className="flex items-center justify-center px-[50px] py-14 max-lg:px-8 max-md:px-6 max-md:py-8 max-[410px]:px-[17px]">
             <div className="w-full max-w-[430px]">
               <div className="mb-7 hidden max-md:block">
-                <Brand compact to="/about" />
+                <Brand compact />
               </div>
               <div className="mb-[25px]">
                 <span className="inline-block text-[10px] font-extrabold tracking-[1.75px] text-[#73886e]">{eyebrow}</span>

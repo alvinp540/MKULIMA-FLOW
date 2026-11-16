@@ -1,26 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Bird,
   CalendarDays,
   Egg,
   HeartPulse,
+  ShieldCheck,
   Wheat,
 } from 'lucide-react'
 import useAuth from '../../hooks/useAuth'
-
-const metrics = [
-  { label: 'Active flock', value: '0', detail: 'birds on this farm', icon: Bird, tone: 'green' },
-  { label: 'Eggs collected', value: '0', detail: 'collected today', icon: Egg, tone: 'amber' },
-  { label: 'Feed on hand', value: '0 kg', detail: 'across your inventory', icon: Wheat, tone: 'blue' },
-  { label: 'Health checks', value: '0', detail: 'attention needed', icon: HeartPulse, tone: 'rose' },
-]
+import { csrfFetch } from '../../services/authService'
 
 const iconStyles = {
   green: 'bg-[#edf4e7] text-[#52794b]',
   amber: 'bg-[#fbf2df] text-[#a47b35]',
   blue: 'bg-[#eaf1f5] text-[#587b91]',
   rose: 'bg-[#f8ece8] text-[#a56a58]',
+}
+
+const numberFormat = new Intl.NumberFormat('en')
+
+function formatNumber(value) {
+  return numberFormat.format(Number(value) || 0)
+}
+
+function formatDecimal(value) {
+  return Number(value || 0).toLocaleString('en', { maximumFractionDigits: 2 })
+}
+
+function dateKey(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export default function HomePage() {
@@ -31,7 +43,148 @@ export default function HomePage() {
     month: 'long',
     day: 'numeric',
   }).format(new Date()))
+  const [weekDays] = useState(() => Array.from({ length: 7 }, (_, index) => {
+    const day = new Date()
+    day.setDate(day.getDate() - (6 - index))
+    return {
+      key: dateKey(day),
+      label: new Intl.DateTimeFormat('en', { weekday: 'narrow' }).format(day),
+      fullLabel: new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(day),
+    }
+  }))
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const firstName = user?.username?.split(/[ ._-]/)[0] || 'there'
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadData() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const [flockData, eggData, feedData, healthData] = await Promise.all([
+          csrfFetch('/api/flocks/'),
+          csrfFetch('/api/egg-production/'),
+          csrfFetch('/api/feed/items/'),
+          csrfFetch('/api/health/dashboard/'),
+        ])
+
+        if (cancelled) return
+
+        setData({
+          flocks: flockData.flocks ?? [],
+          flockSummary: flockData.summary ?? {},
+          eggRecords: eggData.records ?? [],
+          eggSummary: eggData.summary ?? {},
+          feedItems: feedData.items ?? [],
+          health: healthData ?? { summary: {}, alerts: [] },
+        })
+      } catch (requestError) {
+        if (!cancelled) setError(requestError.message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const weeklyEggs = useMemo(() => {
+    const totalsByDate = new Map()
+    ;(data?.eggRecords ?? []).forEach((record) => {
+      totalsByDate.set(
+        record.collection_date,
+        (totalsByDate.get(record.collection_date) ?? 0) + Number(record.eggs_collected || 0),
+      )
+    })
+
+    return weekDays.map((day) => ({
+      ...day,
+      value: totalsByDate.get(day.key) ?? 0,
+    }))
+  }, [data, weekDays])
+
+  const todayEggs = weeklyEggs[weeklyEggs.length - 1]?.value ?? 0
+  const weekTotal = weeklyEggs.reduce((sum, day) => sum + day.value, 0)
+  const weekAverage = Math.round(weekTotal / 7)
+  const chartMax = Math.max(...weeklyEggs.map((day) => day.value), 0)
+
+  const activeFlocks = useMemo(
+    () => (data?.flocks ?? []).filter((flock) => flock.status === 'active'),
+    [data],
+  )
+  const activeBirds = activeFlocks.reduce((sum, flock) => sum + Number(flock.initial_quantity || 0), 0)
+  const totalBirds = Number(data?.health?.summary?.total_birds ?? 0)
+
+  const feedOnHand = useMemo(() => {
+    const items = data?.feedItems ?? []
+    const totalsByUnit = new Map()
+
+    items.forEach((item) => {
+      const unit = item.unit || 'kg'
+      totalsByUnit.set(unit, (totalsByUnit.get(unit) ?? 0) + Number(item.current_stock || 0))
+    })
+
+    if (totalsByUnit.size === 0) {
+      return { value: '0 kg', detail: 'across your inventory' }
+    }
+
+    if (totalsByUnit.size === 1) {
+      const [[unit, total]] = Array.from(totalsByUnit.entries())
+      return { value: `${formatDecimal(total)} ${unit}`, detail: 'across your inventory' }
+    }
+
+    const total = Array.from(totalsByUnit.values()).reduce((sum, value) => sum + value, 0)
+    return { value: formatDecimal(total), detail: `across ${items.length} feed items` }
+  }, [data])
+
+  const healthSummary = data?.health?.summary ?? {}
+  const attentionCount = Number(healthSummary.active_disease_cases ?? 0) + Number(healthSummary.vaccinations_due ?? 0)
+
+  const metrics = [
+    {
+      label: 'Active flock',
+      value: loading ? '—' : formatNumber(activeBirds),
+      detail: 'birds on this farm',
+      icon: Bird,
+      tone: 'green',
+    },
+    {
+      label: 'Eggs collected',
+      value: loading ? '—' : formatNumber(todayEggs),
+      detail: 'collected today',
+      icon: Egg,
+      tone: 'amber',
+    },
+    {
+      label: 'Feed on hand',
+      value: loading ? '—' : feedOnHand.value,
+      detail: feedOnHand.detail,
+      icon: Wheat,
+      tone: 'blue',
+    },
+    {
+      label: 'Health checks',
+      value: loading ? '—' : formatNumber(attentionCount),
+      detail: attentionCount ? 'need attention' : 'all clear',
+      icon: HeartPulse,
+      tone: 'rose',
+    },
+  ]
+
+  const healthItems = [
+    { label: 'Healthy flocks', value: formatNumber(healthSummary.healthy_flocks ?? 0) },
+    { label: 'Vaccinations due', value: formatNumber(healthSummary.vaccinations_due ?? 0) },
+    { label: 'Disease cases', value: formatNumber(healthSummary.active_disease_cases ?? 0) },
+    { label: 'Mortality rate', value: `${formatDecimal(healthSummary.mortality_rate ?? 0)}%` },
+  ]
 
   return (
     <div className="space-y-7">
@@ -48,8 +201,13 @@ export default function HomePage() {
             Here is what is happening at <span className="font-semibold text-[#223d2f]">{farm}</span>.
           </p>
         </div>
-        
       </section>
+
+      {error && (
+        <p className="rounded-xl border border-[#f1d7cb] bg-[#fff7f2] px-4 py-3 text-[12px] text-[#94451f]" role="alert">
+          Could not load the farm summary: {error}
+        </p>
+      )}
 
       <section aria-label="Poultry farm summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map(({ label, value, detail, icon: Icon, tone }) => (
@@ -75,33 +233,67 @@ export default function HomePage() {
               <h2 className="text-[15px] font-bold text-[#334238]">Egg production</h2>
               <p className="mt-1 text-[11px] text-[#8a958b]">Daily collection · Last 7 days</p>
             </div>
-            <span className="rounded-lg border border-[#e9ece5] px-3 py-1.5 text-[10px] font-semibold text-[#768378]">This week</span>
+            <span className="rounded-lg border border-[#e9ece5] px-3 py-1.5 text-[10px] font-semibold text-[#768378]">
+              {loading ? 'This week' : `${formatNumber(weekTotal)} eggs`}
+            </span>
           </div>
           <div className="mt-7 flex h-[168px] items-end justify-between gap-2 border-b border-[#edf0eb] px-1">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-              <div className="flex h-full flex-1 flex-col items-center justify-end gap-2" key={`${day}-${index}`}>
-                <span className="min-h-1 w-full max-w-[36px] rounded-t-md bg-[#edf3e8]" style={{ height: '6%' }} />
-                <span className="pb-2 text-[10px] text-[#929d93]">{day}</span>
-              </div>
-            ))}
+            {weeklyEggs.map((day) => {
+              const height = chartMax ? Math.max(4, Math.round((day.value / chartMax) * 100)) : 4
+              return (
+                <div className="flex h-full flex-1 flex-col items-center justify-end gap-2" key={day.key} title={`${day.fullLabel}: ${formatNumber(day.value)} eggs`}>
+                  {day.value > 0 && (
+                    <span className="text-[9px] font-semibold text-[#7d8d7f]">{formatNumber(day.value)}</span>
+                  )}
+                  <span
+                    className={`min-h-1 w-full max-w-[36px] rounded-t-md ${day.value > 0 ? 'bg-[linear-gradient(180deg,#b6d2a6,#7fa86f)]' : 'bg-[#edf3e8]'}`}
+                    style={{ height: `${height}%` }}
+                  />
+                  <span className="pb-2 text-[10px] text-[#929d93]">{day.label}</span>
+                </div>
+              )
+            })}
           </div>
-          <p className="mt-4 text-[10px] text-[#929d93]">coming soon.</p>
+          <p className="mt-4 text-[10px] text-[#929d93]">
+            {loading
+              ? 'Loading egg records…'
+              : weekTotal
+                ? `${formatNumber(weekTotal)} eggs collected in the last 7 days · ${formatNumber(weekAverage)} per day`
+                : 'No egg records in the last 7 days.'}
+          </p>
         </article>
 
         <article className="flex min-h-[300px] flex-col rounded-2xl bg-[#1f3b2d] p-6 text-white sm:p-7">
           <span className="grid size-10 place-items-center rounded-xl bg-white/10 text-[#c8dda6]">
-            <Bird aria-hidden="true" size={20} />
+            <ShieldCheck aria-hidden="true" size={20} />
           </span>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[1.4px] text-[#c8dda6]">A good place to start</p>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[1.4px] text-[#c8dda6]">Farm health</p>
           <h2 className="mt-2 max-w-[280px] font-display text-[21px] font-semibold leading-snug tracking-[-0.5px]">
-            Your poultry journey starts with a flock.
+            {loading
+              ? 'Checking your flock health…'
+              : attentionCount
+                ? `${formatNumber(attentionCount)} ${attentionCount === 1 ? 'item needs' : 'items need'} attention.`
+                : 'Your farm is in good shape.'}
           </h2>
           <p className="mt-2 text-[12px] leading-relaxed text-white/65">
-            Once flock management is ready, you’ll be able to keep bird records, track egg collection, and stay on top of flock health here.
+            {attentionCount
+              ? 'Review vaccinations and disease cases in Health & care.'
+              : 'No critical health alerts were raised for your current records.'}
           </p>
+          <dl className="mt-5 grid grid-cols-2 gap-2">
+            {healthItems.map((item) => (
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5" key={item.label}>
+                <dt className="text-[10px] text-white/45">{item.label}</dt>
+                <dd className="mt-1 font-display text-[18px] font-semibold text-white">
+                  {loading ? '—' : item.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
           <div className="mt-auto flex items-center gap-2 border-t border-white/10 pt-4 text-[11px] font-medium text-white/75">
-            
-            Flock management is coming soon
+            {loading
+              ? 'Loading farm records…'
+              : `${formatNumber(data?.flockSummary?.total ?? 0)} flocks · ${formatNumber(totalBirds)} birds recorded`}
           </div>
         </article>
       </section>

@@ -55,7 +55,7 @@ const FEATURES = [
 const STEPS = [
   {
     title: 'Create your account',
-    description: 'Sign up as a farmer in under a minute — no paperwork, no spreadsheets.',
+    description: 'Sign up as a farmer in under a minute  no paperwork, no spreadsheets.',
   },
   {
     title: 'Set up your farm',
@@ -81,17 +81,30 @@ const eyebrowClass = 'text-[10px] font-extrabold uppercase tracking-[2px] text-[
 export default function LandingPage() {
   return (
     <>
-      <main className="flex-1">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <video
+          autoPlay
+          className="size-full object-cover motion-reduce:hidden"
+          loop
+          muted
+          playsInline
+          poster="/images/dashboardbackground.png"
+          preload="metadata"
+        >
+          <source src="/videos/farm-background.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-[linear-gradient(165deg,rgba(8,25,17,0.82),rgba(7,22,15,0.9))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_0%,rgba(47,122,78,0.32),transparent_90%)]" />
+      </div>
+
+      <main className="relative z-10 flex-1">
         <section className="relative overflow-hidden">
           <div aria-hidden="true" className="pointer-events-none absolute -left-32 -top-40 size-[420px] rounded-full bg-[#b8d28e]/10 blur-3xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-24 size-[360px] rounded-full bg-[#2f7a4e]/25 blur-3xl" />
 
           <div className="relative mx-auto grid w-[min(1200px,calc(100%-64px))] gap-12 py-14 max-sm:w-[calc(100%-36px)] lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-10 lg:py-20">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[1.6px] text-white/70 backdrop-blur-md">
-                <Sparkles aria-hidden="true" className="text-[#b8d28e]" size={13} />
-                Poultry management system
-              </span>
+              
 
               <h1 className="mt-5 font-display text-[clamp(38px,5.2vw,60px)] font-semibold leading-[1.03] tracking-[-1.8px] text-white">
                 Run your poultry farm
@@ -100,8 +113,8 @@ export default function LandingPage() {
               </h1>
 
               <p className="mt-5 max-w-[520px] text-[14.5px] leading-[1.8] text-white/70">
-                MkulimaFlow brings your flocks, egg production, feed inventory, and
-                healthcare records together — so you spend less time on paperwork and
+                MkulimaFlow brings your flocks, egg production, feed inventory and
+                healthcare records together  so you spend less time on paperwork and
                 more time with your birds.
               </p>
 
@@ -195,9 +208,9 @@ export default function LandingPage() {
 
         <section className="mx-auto w-[min(1200px,calc(100%-64px))] scroll-mt-24 py-10 max-sm:w-[calc(100%-36px)]" id="features">
           <div className="max-w-[640px]">
-            <p className={eyebrowClass}>What’s inside</p>
+            <p className={eyebrowClass}>Whats inside</p>
             <h2 className="mt-3 font-display text-[clamp(28px,3.4vw,40px)] font-semibold leading-[1.12] tracking-[-1.2px] text-white">
-              Everything your poultry farm needs. Nothing it doesn’t.
+              Everything your poultry farm needs. Nothing it does not.
             </h2>
             <p className="mt-3 text-[13.5px] leading-[1.75] text-white/60">
               Six connected modules cover the daily work of a poultry farm — from the
@@ -268,7 +281,7 @@ export default function LandingPage() {
               <p className="mt-4 text-[13.5px] leading-[1.8] text-white/65">
                 MkulimaFlow was built to replace scattered notebooks, chat messages, and
                 spreadsheets with one clear workspace. It is designed for the way poultry
-                farms actually work — quick entries in the morning, decisions during the
+                farms actually work  quick entries in the morning, decisions during the
                 day, and records you can trust at the end of the month.
               </p>
               <p className="mt-3 text-[13.5px] leading-[1.8] text-white/65">

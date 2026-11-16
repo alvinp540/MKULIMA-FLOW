@@ -24,6 +24,7 @@ const FARM_MODULES = [
 
 const FOOTER_LINKS = [
   { label: 'About', to: '/about' },
+  { label: 'Pricing', to: '/pricing' },
   { label: 'Log in', to: '/login' },
   { label: 'Create account', to: '/signup' },
 ]
@@ -36,14 +37,14 @@ const tileClass =
 
 export default function SiteFooter() {
   return (
-    <footer className="relative mt-auto overflow-hidden border-t border-white/10 bg-[linear-gradient(180deg,rgba(7,24,17,0.45),rgba(7,24,17,0.88))] text-white backdrop-blur-xl">
+    <footer className="relative z-10 mt-auto overflow-hidden border-t border-white/10 bg-[linear-gradient(180deg,rgba(7,24,17,0.45),rgba(7,24,17,0.88))] text-white backdrop-blur-xl">
       <div aria-hidden="true" className="pointer-events-none absolute -left-24 -top-28 size-72 rounded-full bg-[#b8d28e]/10 blur-3xl" />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-0 size-80 rounded-full bg-[#2f7a4e]/20 blur-3xl" />
 
       <div className="relative mx-auto w-[min(1200px,calc(100%-64px))] py-10 max-sm:w-[calc(100%-36px)] max-sm:py-8">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start lg:gap-12">
           <div className="flex flex-col items-start">
-            <Brand light to="/about" />
+            <Brand light />
             <p className="mt-4 max-w-[330px] text-[12.5px] leading-[1.75] text-white/60">
               A simpler way for farmers and buyers to find each other, track production,
               and move agriculture forward.
