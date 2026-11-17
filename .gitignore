@@ -1,3 +1,20 @@
+# Local environment files (never commit real credentials)
 .env
 .env.*
 !.env.example
+
+# Python
+.venv/
+**/__pycache__/
+**/*.py[cod]
+mkulimaflow_backend/mkulimaflow/staticfiles/
+mkulimaflow_backend/mkulimaflow/frontend_dist/
+
+# Frontend
+mkulimaflow_frontend/node_modules/
+mkulimaflow_frontend/dist/
+
+# IDE & Logs
+.idea/
+.vscode/
+*.log

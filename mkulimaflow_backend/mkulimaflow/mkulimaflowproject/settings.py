@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,6 +42,25 @@ def load_env_file(path):
 load_env_file(BASE_DIR.parent.parent / ".env")
 
 
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name):
+    return [
+        item.strip()
+        for item in os.environ.get(name, "").split(",")
+        if item.strip()
+    ]
+
+
+RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+RAILWAY_PRIVATE_DOMAIN = os.environ.get("RAILWAY_PRIVATE_DOMAIN", "").strip()
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
@@ -48,22 +68,64 @@ load_env_file(BASE_DIR.parent.parent / ".env")
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-}
+DEBUG = env_bool("DJANGO_DEBUG", False)
 
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
-    if host.strip()
-]
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin.strip()
-]
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS.extend(
+    host
+    for host in (
+        "localhost",
+        "127.0.0.1",
+        "healthcheck.railway.app",
+        ".railway.app",
+        ".up.railway.app",
+        RAILWAY_PUBLIC_DOMAIN,
+        RAILWAY_PRIVATE_DOMAIN,
+    )
+    if host and host not in ALLOWED_HOSTS
+)
+
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+for origin in (
+    f"https://{RAILWAY_PUBLIC_DOMAIN}" if RAILWAY_PUBLIC_DOMAIN else "",
+    f"http://{RAILWAY_PRIVATE_DOMAIN}" if RAILWAY_PRIVATE_DOMAIN else "",
+):
+    if origin and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+
+if DEBUG:
+    for origin in (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ):
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+
+
+# M-Pesa (Safaricom Daraja) payments
+# Leave the credentials blank to run the clearly-labelled demo checkout in DEBUG.
+MPESA_ENV = os.environ.get("MPESA_ENV", "sandbox").strip().lower()
+MPESA_CONSUMER_KEY = os.environ.get("MPESA_CONSUMER_KEY", "").strip()
+MPESA_CONSUMER_SECRET = os.environ.get("MPESA_CONSUMER_SECRET", "").strip()
+MPESA_SHORTCODE = os.environ.get("MPESA_SHORTCODE", "").strip()
+MPESA_PASSKEY = os.environ.get("MPESA_PASSKEY", "").strip()
+MPESA_CALLBACK_URL = os.environ.get("MPESA_CALLBACK_URL", "").strip()
+MPESA_CALLBACK_SECRET = os.environ.get("MPESA_CALLBACK_SECRET", "").strip()
+MPESA_TRANSACTION_TYPE = os.environ.get(
+    "MPESA_TRANSACTION_TYPE", "CustomerPayBillOnline"
+).strip()
+MPESA_USD_TO_KES_RATE = os.environ.get("MPESA_USD_TO_KES_RATE", "130").strip() or "130"
+
+if not MPESA_CALLBACK_URL and RAILWAY_PUBLIC_DOMAIN:
+    MPESA_CALLBACK_URL = (
+        f"https://{RAILWAY_PUBLIC_DOMAIN}/api/payments/mpesa/callback/"
+    )
+
+# Visa/PayPal have no live gateway integration yet. Keep demo checkout
+# available on a staging deployment by setting PAYMENTS_DEMO_MODE=True.
+PAYMENTS_DEMO_MODE = env_bool("PAYMENTS_DEMO_MODE", DEBUG)
 
 
 # Application definition
@@ -90,6 +152,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -123,16 +186,51 @@ WSGI_APPLICATION = 'mkulimaflowproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ["DB_NAME"],
-        'USER': os.environ["DB_USER"],
-        'PASSWORD': os.environ["DB_PASSWORD"],
-        'HOST': os.environ["DB_HOST"],
-        'PORT': os.environ.get("DB_PORT", "5432"),
+def database_config():
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+
+    if database_url:
+        parsed = urlparse(database_url)
+        query = dict(parse_qsl(parsed.query))
+        options = {}
+        sslmode = query.get("sslmode") or os.environ.get("DB_SSLMODE", "").strip()
+        if sslmode:
+            options["sslmode"] = sslmode
+        options["connect_timeout"] = int(os.environ.get("DB_CONNECT_TIMEOUT", "10"))
+
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed.path.lstrip("/")) or "postgres",
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": str(parsed.port or 5432),
+            "CONN_MAX_AGE": 600,
+            "CONN_HEALTH_CHECKS": True,
+            "OPTIONS": options,
+        }
+
+    options = {
+        "connect_timeout": int(os.environ.get("DB_CONNECT_TIMEOUT", "10")),
     }
-}
+    sslmode = os.environ.get("DB_SSLMODE", "").strip()
+    if sslmode:
+        options["sslmode"] = sslmode
+
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ["DB_NAME"],
+        "USER": os.environ["DB_USER"],
+        "PASSWORD": os.environ["DB_PASSWORD"],
+        "HOST": os.environ["DB_HOST"],
+        "PORT": os.environ.get("DB_PORT", "5432"),
+        "CONN_MAX_AGE": 600,
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": options,
+    }
+
+
+DATABASES = {"default": database_config()}
 
 
 # Password validation
@@ -169,7 +267,28 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# The React production build is copied here by the Docker image. WhiteNoise
+# serves its files (index.html, /assets, /images, /videos) at the site root.
+FRONTEND_DIST = BASE_DIR / 'frontend_dist'
+if FRONTEND_DIST.is_dir():
+    WHITENOISE_ROOT = FRONTEND_DIST
+WHITENOISE_MAX_AGE = 60 * 60 * 24 * 30
+
+
+# Production security. Railway terminates TLS and forwards X-Forwarded-Proto.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
 
 
 # Email

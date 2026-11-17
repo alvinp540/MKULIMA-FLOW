@@ -1,5 +1,7 @@
 ﻿import json
-from datetime import datetime
+import re
+import secrets
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -8,14 +10,16 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import F, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils.dateparse import parse_date
 from django.utils import timezone
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
+from . import mpesa
 from .forms import RegisterForm
 from .models import (
     DiseaseCase,
@@ -28,12 +32,15 @@ from .models import (
     HealthSchedule,
     Medication,
     MortalityRecord,
+    MpesaPayment,
+    OnlinePayment,
     TreatmentRecord,
     UserSettings,
     VaccinationPlan,
     VaccinationRecord,
     VeterinaryVisit,
 )
+from .plans import exchange_rate, plan_list, plan_payload
 from .roles import ROLE_CHOICES
 
 
@@ -1535,6 +1542,429 @@ def api_health_reports(request):
         },
     }
     return JsonResponse({"report": report})
+
+
+def _mpesa_payment_payload(payment):
+    return {
+        "reference": str(payment.reference),
+        "provider": "mpesa",
+        "plan": payment.plan,
+        "amount_usd": f"{float(payment.amount_usd):.2f}",
+        "amount_kes": payment.amount_kes,
+        "phone_number": payment.phone_number,
+        "status": payment.status,
+        "demo": payment.demo,
+        "mpesa_receipt": payment.mpesa_receipt,
+        "result_code": payment.result_code,
+        "result_desc": payment.result_desc,
+        "account_reference": payment.account_reference,
+        "created_at": payment.created_at.isoformat(),
+    }
+
+
+@require_GET
+def api_mpesa_config(request):
+    configured = mpesa.is_configured()
+    demo_mode = bool(settings.PAYMENTS_DEMO_MODE and not configured)
+
+    if configured:
+        message = (
+            "Pay securely with M-Pesa. You will receive an STK Push prompt on your phone."
+        )
+    elif demo_mode:
+        message = (
+            "Demo mode: M-Pesa credentials are not configured, so no money will be charged."
+        )
+    else:
+        message = "M-Pesa payments are not available yet. Please contact support."
+
+    return JsonResponse(
+        {
+            "provider": "M-Pesa",
+            "currency": "KES",
+            "environment": settings.MPESA_ENV,
+            "usd_to_kes_rate": float(exchange_rate()),
+            "configured": configured,
+            "demo_mode": demo_mode,
+            "enabled": configured or demo_mode,
+            "message": message,
+            "plans": plan_list(),
+        }
+    )
+
+
+@require_POST
+def api_mpesa_initiate(request):
+    data = _request_data(request)
+    if data is None:
+        return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+    plan_key = str(data.get("plan") or "").strip()
+    try:
+        plan = plan_payload(plan_key)
+    except KeyError:
+        return JsonResponse({"error": "Choose a valid payment plan."}, status=400)
+
+    try:
+        phone = mpesa.normalize_phone(data.get("phone_number"))
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+
+    configured = mpesa.is_configured()
+    demo_mode = bool(settings.PAYMENTS_DEMO_MODE and not configured)
+    if not configured and not demo_mode:
+        return JsonResponse(
+            {"error": "M-Pesa payments are not available yet. Please contact support."},
+            status=503,
+        )
+
+    payment = MpesaPayment.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        plan=plan_key,
+        amount_usd=plan["amount_usd"],
+        amount_kes=plan["amount_kes"],
+        phone_number=phone,
+        account_reference=f"MF{secrets.token_hex(3).upper()}",
+        status=MpesaPayment.Status.PENDING,
+    )
+
+    if demo_mode:
+        payment.demo = True
+        payment.status = MpesaPayment.Status.SUCCESS
+        payment.mpesa_receipt = f"DEMO{secrets.token_hex(4).upper()}"
+        payment.result_code = "0"
+        payment.result_desc = "Demo payment completed. No money was moved."
+        payment.raw_response = {"demo": True}
+        payment.save()
+        return JsonResponse(
+            {
+                **_mpesa_payment_payload(payment),
+                "message": payment.result_desc,
+            },
+            status=201,
+        )
+
+    callback_url = settings.MPESA_CALLBACK_URL or request.build_absolute_uri(
+        reverse("api_mpesa_callback")
+    )
+    if settings.MPESA_CALLBACK_SECRET:
+        separator = "&" if "?" in callback_url else "?"
+        callback_url = (
+            f"{callback_url}{separator}token={settings.MPESA_CALLBACK_SECRET}"
+        )
+
+    try:
+        result = mpesa.stk_push(
+            phone=phone,
+            amount=plan["amount_kes"],
+            account_reference=payment.account_reference,
+            description=plan["description"],
+            callback_url=callback_url,
+        )
+    except mpesa.MpesaError as error:
+        payment.status = MpesaPayment.Status.FAILED
+        payment.result_code = "request-error"
+        payment.result_desc = str(error)[:255]
+        payment.save()
+        return JsonResponse(
+            {
+                "error": "We could not start the M-Pesa request. Please try again.",
+                "detail": str(error)[:400],
+                "reference": str(payment.reference),
+                "status": payment.status,
+            },
+            status=502,
+        )
+
+    payment.merchant_request_id = str(result.get("MerchantRequestID") or "")
+    payment.checkout_request_id = str(result.get("CheckoutRequestID") or "")
+    payment.raw_response = result
+    if str(result.get("ResponseCode")) == "0":
+        payment.result_code = "0"
+        payment.result_desc = str(
+            result.get("CustomerMessage") or "STK Push sent. Check your phone."
+        )[:255]
+    else:
+        payment.status = MpesaPayment.Status.FAILED
+        payment.result_code = str(result.get("ResponseCode") or "")[:16]
+        payment.result_desc = str(
+            result.get("ResponseDescription") or "M-Pesa request failed."
+        )[:255]
+    payment.save()
+
+    if payment.status == MpesaPayment.Status.FAILED:
+        return JsonResponse(
+            {
+                "error": payment.result_desc or "M-Pesa could not start the payment.",
+                "reference": str(payment.reference),
+                "status": payment.status,
+            },
+            status=502,
+        )
+
+    return JsonResponse(
+        {
+            **_mpesa_payment_payload(payment),
+            "message": "Enter your M-Pesa PIN on the prompt sent to your phone.",
+        },
+        status=201,
+    )
+
+
+@require_GET
+def api_mpesa_status(request, reference):
+    payment = MpesaPayment.objects.filter(reference=reference).first()
+    if payment is None:
+        return JsonResponse({"error": "Payment not found."}, status=404)
+
+    should_query = (
+        payment.status == MpesaPayment.Status.PENDING
+        and not payment.demo
+        and payment.checkout_request_id
+        and mpesa.is_configured()
+        and timezone.now() - payment.updated_at >= timedelta(seconds=5)
+    )
+
+    if should_query:
+        try:
+            result = mpesa.query_status(payment.checkout_request_id)
+        except mpesa.MpesaError:
+            result = None
+
+        if result:
+            payment.raw_response = {**payment.raw_response, "query": result}
+            code = result.get("ResultCode")
+            if code is not None:
+                code = str(code)
+                payment.result_code = code[:16]
+                payment.result_desc = str(result.get("ResultDesc") or "")[:255]
+                if code == "0":
+                    payment.status = MpesaPayment.Status.SUCCESS
+                elif code == "1032":
+                    payment.status = MpesaPayment.Status.CANCELLED
+                else:
+                    payment.status = MpesaPayment.Status.FAILED
+            payment.save()
+
+    return JsonResponse(_mpesa_payment_payload(payment))
+
+
+@csrf_exempt
+@require_POST
+def api_mpesa_callback(request):
+    if settings.MPESA_CALLBACK_SECRET and (
+        request.GET.get("token") != settings.MPESA_CALLBACK_SECRET
+    ):
+        return JsonResponse(
+            {"ResultCode": 1, "ResultDesc": "Invalid callback token."}, status=403
+        )
+
+    data = _request_data(request)
+    if data is None:
+        return JsonResponse(
+            {"ResultCode": 1, "ResultDesc": "Invalid callback payload."}, status=400
+        )
+
+    callback = (data.get("Body") or {}).get("stkCallback") or {}
+    checkout_request_id = str(callback.get("CheckoutRequestID") or "")
+    payment = (
+        MpesaPayment.objects.filter(checkout_request_id=checkout_request_id).first()
+        if checkout_request_id
+        else None
+    )
+
+    if payment is not None:
+        metadata_items = (callback.get("CallbackMetadata") or {}).get("Item") or []
+        metadata = {
+            str(item.get("Name")): item.get("Value")
+            for item in metadata_items
+            if isinstance(item, dict)
+        }
+
+        code = callback.get("ResultCode")
+        receipt = metadata.get("MpesaReceiptNumber")
+        payment.raw_callback = data
+        payment.result_code = str(code if code is not None else "")[:16]
+        payment.result_desc = str(callback.get("ResultDesc") or "")[:255]
+        if receipt:
+            payment.mpesa_receipt = str(receipt)[:40]
+
+        if str(code) == "0":
+            payment.status = MpesaPayment.Status.SUCCESS
+        elif str(code) == "1032":
+            payment.status = MpesaPayment.Status.CANCELLED
+        else:
+            payment.status = MpesaPayment.Status.FAILED
+        payment.save()
+
+    return JsonResponse({"ResultCode": 0, "ResultDesc": "Callback received."})
+
+
+def _mpesa_method_payload():
+    configured = mpesa.is_configured()
+    demo_mode = bool(settings.PAYMENTS_DEMO_MODE and not configured)
+
+    if configured:
+        message = (
+            "Pay securely with M-Pesa. You will receive an STK Push prompt on your phone."
+        )
+    elif demo_mode:
+        message = (
+            "Demo mode: M-Pesa credentials are not configured, so no money will be charged."
+        )
+    else:
+        message = "M-Pesa payments are not available yet. Please contact support."
+
+    return {
+        "key": "mpesa",
+        "label": "M-Pesa",
+        "currency": "KES",
+        "enabled": configured or demo_mode,
+        "demo_mode": demo_mode,
+        "message": message,
+    }
+
+
+def _online_method_payload(key, label):
+    demo_mode = bool(settings.PAYMENTS_DEMO_MODE)
+
+    if demo_mode:
+        message = f"Demo mode: no real {label} charge will be made."
+    else:
+        message = f"{label} checkout is not enabled on this server yet."
+
+    return {
+        "key": key,
+        "label": label,
+        "currency": "USD",
+        "enabled": demo_mode,
+        "demo_mode": demo_mode,
+        "message": message,
+    }
+
+
+def _online_payment_payload(payment):
+    return {
+        "reference": str(payment.reference),
+        "provider": payment.provider,
+        "plan": payment.plan,
+        "amount_usd": f"{float(payment.amount_usd):.2f}",
+        "email": payment.email,
+        "cardholder_name": payment.cardholder_name,
+        "status": payment.status,
+        "demo": payment.demo,
+        "receipt": payment.receipt,
+        "result_desc": payment.result_desc,
+        "created_at": payment.created_at.isoformat(),
+    }
+
+
+@require_GET
+def api_payment_config(request):
+    methods = [
+        _mpesa_method_payload(),
+        _online_method_payload("visa", "Visa"),
+        _online_method_payload("paypal", "PayPal"),
+    ]
+
+    return JsonResponse(
+        {
+            "currency": "KES",
+            "usd_to_kes_rate": float(exchange_rate()),
+            "demo_mode": any(method["demo_mode"] for method in methods),
+            "enabled": any(method["enabled"] for method in methods),
+            "plans": plan_list(),
+            "methods": methods,
+        }
+    )
+
+
+@require_POST
+def api_online_payment_initiate(request):
+    data = _request_data(request)
+    if data is None:
+        return JsonResponse({"error": "Expected a JSON object."}, status=400)
+
+    provider = str(data.get("provider") or "").strip().lower()
+    if provider not in OnlinePayment.Provider.values:
+        return JsonResponse({"error": "Choose a valid card or PayPal option."}, status=400)
+
+    plan_key = str(data.get("plan") or "").strip()
+    try:
+        plan = plan_payload(plan_key)
+    except KeyError:
+        return JsonResponse({"error": "Choose a valid payment plan."}, status=400)
+
+    email = str(data.get("email") or "").strip()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return JsonResponse({"error": "Enter a valid email address for your receipt."}, status=400)
+
+    cardholder_name = str(data.get("cardholder_name") or "").strip()
+    if provider == OnlinePayment.Provider.VISA and len(cardholder_name) < 2:
+        return JsonResponse({"error": "Enter the cardholder name."}, status=400)
+
+    if not settings.PAYMENTS_DEMO_MODE:
+        return JsonResponse(
+            {
+                "error": "Visa and PayPal checkout are not enabled on this server yet."
+            },
+            status=503,
+        )
+
+    label = "Visa" if provider == OnlinePayment.Provider.VISA else "PayPal"
+    payment = OnlinePayment.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        provider=provider,
+        plan=plan_key,
+        amount_usd=plan["amount_usd"],
+        email=email,
+        cardholder_name=cardholder_name,
+        status=OnlinePayment.Status.PENDING,
+        demo=True,
+    )
+    payment.status = OnlinePayment.Status.SUCCESS
+    payment.receipt = f"{provider.upper()}{secrets.token_hex(4).upper()}"
+    payment.result_desc = f"Demo {label} payment completed. No money was moved."
+    payment.raw_response = {"demo": True}
+    payment.save()
+
+    return JsonResponse(
+        {
+            **_online_payment_payload(payment),
+            "message": payment.result_desc,
+        },
+        status=201,
+    )
+
+
+@require_GET
+def api_online_payment_status(request, reference):
+    payment = OnlinePayment.objects.filter(reference=reference).first()
+    if payment is None:
+        return JsonResponse({"error": "Payment not found."}, status=404)
+    return JsonResponse(_online_payment_payload(payment))
+
+
+@require_GET
+def api_health(request):
+    return JsonResponse({"status": "ok"})
+
+
+@require_GET
+def spa_index(request):
+    index_path = settings.FRONTEND_DIST / "index.html"
+    if not index_path.is_file():
+        return JsonResponse(
+            {"error": "Frontend build not found. Run npm run build first."},
+            status=404,
+        )
+
+    response = HttpResponse(
+        index_path.read_text(encoding="utf-8"),
+        content_type="text/html",
+    )
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 @login_required(login_url="/login")

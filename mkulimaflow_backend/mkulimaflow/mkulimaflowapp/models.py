@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -507,3 +509,92 @@ class HealthSchedule(models.Model):
 
     def __str__(self):
         return f"{self.flock.name} · {self.title}"
+
+
+class MpesaPayment(models.Model):
+    class Plan(models.TextChoices):
+        SIMPLE_MONTHLY = "simple-monthly", "Simple monthly"
+        PRO_MONTHLY = "pro-monthly", "Pro monthly"
+        SIMPLE_YEARLY = "simple-yearly", "Simple yearly"
+        PRO_YEARLY = "pro-yearly", "Pro yearly"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="mpesa_payments",
+        null=True,
+        blank=True,
+    )
+    plan = models.CharField(max_length=32, choices=Plan.choices)
+    amount_usd = models.DecimalField(max_digits=8, decimal_places=2)
+    amount_kes = models.PositiveIntegerField()
+    phone_number = models.CharField(max_length=16)
+    account_reference = models.CharField(max_length=24)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    demo = models.BooleanField(default=False)
+    merchant_request_id = models.CharField(max_length=80, blank=True)
+    checkout_request_id = models.CharField(max_length=80, blank=True, db_index=True)
+    mpesa_receipt = models.CharField(max_length=40, blank=True)
+    result_code = models.CharField(max_length=16, blank=True)
+    result_desc = models.CharField(max_length=255, blank=True)
+    raw_response = models.JSONField(default=dict, blank=True)
+    raw_callback = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.plan} · KES {self.amount_kes} · {self.phone_number}"
+
+
+class OnlinePayment(models.Model):
+    class Provider(models.TextChoices):
+        VISA = "visa", "Visa"
+        PAYPAL = "paypal", "PayPal"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="online_payments",
+        null=True,
+        blank=True,
+    )
+    provider = models.CharField(max_length=16, choices=Provider.choices)
+    plan = models.CharField(max_length=32)
+    amount_usd = models.DecimalField(max_digits=8, decimal_places=2)
+    email = models.EmailField(blank=True)
+    cardholder_name = models.CharField(max_length=120, blank=True)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    demo = models.BooleanField(default=False)
+    receipt = models.CharField(max_length=40, blank=True)
+    result_desc = models.CharField(max_length=255, blank=True)
+    raw_response = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.provider} · ${self.amount_usd} · {self.email or self.user_id}"
+

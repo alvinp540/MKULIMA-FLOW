@@ -1,11 +1,11 @@
-﻿from django.urls import path
+﻿from django.urls import path, re_path
 
 from . import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
     path('home', views.home, name='home'),
     path('sign-up', views.sign_up, name='sign_up'),
+    path('api/health/', views.api_health, name='api_health'),
     path('api/auth/csrf/', views.api_csrf, name='api_csrf'),
     path('api/auth/session/', views.api_session, name='api_session'),
     path('api/auth/login/', views.api_login, name='api_login'),
@@ -34,4 +34,12 @@ urlpatterns = [
     path('api/health/schedules/', views.api_health_schedules, name='api_health_schedules'),
     path('api/health/veterinary-visits/', views.api_health_veterinary_visits, name='api_health_veterinary_visits'),
     path('api/health/reports/', views.api_health_reports, name='api_health_reports'),
+    path('api/payments/mpesa/config/', views.api_mpesa_config, name='api_mpesa_config'),
+    path('api/payments/mpesa/initiate/', views.api_mpesa_initiate, name='api_mpesa_initiate'),
+    path('api/payments/mpesa/status/<uuid:reference>/', views.api_mpesa_status, name='api_mpesa_status'),
+    path('api/payments/mpesa/callback/', views.api_mpesa_callback, name='api_mpesa_callback'),
+    path('api/payments/config/', views.api_payment_config, name='api_payment_config'),
+    path('api/payments/online/initiate/', views.api_online_payment_initiate, name='api_online_payment_initiate'),
+    path('api/payments/online/status/<uuid:reference>/', views.api_online_payment_status, name='api_online_payment_status'),
+    re_path(r'^(?!api/|admin/|static/|media/).*$', views.spa_index, name='spa_index'),
 ]
