@@ -9,7 +9,7 @@ same-origin, so there is no CORS setup.
 | File | Purpose |
 | --- | --- |
 | `Dockerfile` | Builds the React app with Node, then runs Django with Gunicorn. |
-| `railway.json` | Tells Railway to use the Dockerfile and `/api/health/` as the health check. |
+| `railway.json` | Requests the Dockerfile builder and `/api/health/` health check. Railway is deprecating this file, so also set these values in the dashboard. |
 | `mkulimaflow_backend/requirements.txt` | Python dependencies, including Gunicorn and WhiteNoise. |
 | `.dockerignore` | Keeps `.venv`, `node_modules`, `dist`, logs and secrets out of the image. |
 | `.gitignore` | Keeps local credentials, virtualenv and build output out of git. |
@@ -18,15 +18,33 @@ On container start, Django runs `collectstatic`, applies migrations, then starts
 Gunicorn. WhiteNoise serves the React build (`index.html`, `/assets`, `/images`,
 `/videos`) and Django admin static files.
 
+## Required service settings
+
+The Dockerfile lives at the repository root and copies from **both**
+`mkulimaflow_frontend/` and `mkulimaflow_backend/`. That only works when Railway
+builds from the repository root, so these dashboard values must match:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Root Directory | `/` (repo root, not `mkulimaflow_backend/mkulimaflow`) | The build context must contain both top-level folders. |
+| Dockerfile Path | `Dockerfile` | Relative to the root directory. |
+| Healthcheck Path | `/api/health/` | `railway.json` sets this, but dashboard settings are authoritative. |
+| Restart Policy | On Failure | Matches `railway.json`. |
+
+If the Root Directory points at `mkulimaflow_backend/mkulimaflow`, the build
+context no longer contains `mkulimaflow_frontend/` and every `COPY` fails with
+`not found`.
+
 ## 1. Commit and push
 
 This `MKULIMA-FLOW` folder is the git repository (`alvinp540/MKULIMA-FLOW`,
-branch `main`). From this folder:
+branch `main`). The deployment configuration is already committed and pushed. For
+future changes:
 
 ```powershell
 git add .
 git status
-git commit -m "Prepare Railway deployment"
+git commit -m "Describe the change"
 git push origin main
 ```
 
@@ -36,11 +54,14 @@ Before committing, confirm that `.env` is **not** staged. It is ignored, but
 ## 2. Create the Railway service
 
 1. In Railway, choose **New Project → Deploy from GitHub repo**.
-2. Select `alvinp540/MKULIMA-FLOW`. Railway reads `railway.json` and the root
-   `Dockerfile` automatically; leave the root directory as the repository root.
-3. Add the environment variables below.
-4. Open **Settings → Networking → Generate Domain**.
-5. Wait for the health check at `/api/health/` to pass.
+2. Select `alvinp540/MKULIMA-FLOW`.
+3. Open **Settings → Source** and confirm **Root Directory** is `/` (blank or
+   `/`). Clear it if it was prefilled with `mkulimaflow_backend/mkulimaflow`.
+4. Confirm **Settings → Build → Dockerfile Path** is `Dockerfile`, and the builder
+   is **Dockerfile**.
+5. Add the environment variables below.
+6. Open **Settings → Networking → Generate Domain**.
+7. Wait for the health check at `/api/health/` to pass.
 
 ## 3. Environment variables
 
@@ -145,6 +166,10 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
 
 ## Troubleshooting
 
+- **Build fails with `COPY ... not found`** — the service Root Directory is not
+  the repository root. `mkulimaflow_frontend/` and `mkulimaflow_backend/` must
+  both be in the build context, so set **Settings → Source → Root Directory** to
+  `/` and redeploy. `Dockerfile Path` must be `Dockerfile`.
 - **400 Bad Request / CSRF failure** — the public domain is missing from
   `DJANGO_ALLOWED_HOSTS` or `DJANGO_CSRF_TRUSTED_ORIGINS`. Railway's generated
   domain is handled automatically; custom domains are not.
@@ -155,3 +180,7 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
   service's public IP.
 - **Payment methods disabled** — expected in production without credentials.
   Set `PAYMENTS_DEMO_MODE=True` for staging, or configure real M-Pesa keys.
+- **Health check or restart policy not applied from `railway.json`** — Railway is
+  deprecating Config as Code (files stop being read on 2026-12-01, and new
+  services cannot opt in). Set the healthcheck path and restart policy in the
+  dashboard as listed under [Required service settings](#required-service-settings).
