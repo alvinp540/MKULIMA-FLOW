@@ -14,6 +14,8 @@ import os
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -191,6 +193,11 @@ def database_config():
 
     if database_url:
         parsed = urlparse(database_url)
+        if not parsed.hostname:
+            raise ImproperlyConfigured(
+                "DATABASE_URL is set but has no host. Expected a value like "
+                "postgresql://user:password@host:5432/dbname"
+            )
         query = dict(parse_qsl(parsed.query))
         options = {}
         sslmode = query.get("sslmode") or os.environ.get("DB_SSLMODE", "").strip()
@@ -217,13 +224,26 @@ def database_config():
     if sslmode:
         options["sslmode"] = sslmode
 
+    db_values = {
+        "DB_NAME": os.environ.get("DB_NAME", "").strip(),
+        "DB_USER": os.environ.get("DB_USER", "").strip(),
+        "DB_PASSWORD": os.environ.get("DB_PASSWORD", "").strip(),
+        "DB_HOST": os.environ.get("DB_HOST", "").strip(),
+    }
+    missing = [name for name, value in db_values.items() if not value]
+    if missing:
+        raise ImproperlyConfigured(
+            "Set DATABASE_URL, or all of DB_NAME, DB_USER, DB_PASSWORD and "
+            f"DB_HOST. Missing: {', '.join(missing)}"
+        )
+
     return {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DB_NAME"],
-        "USER": os.environ["DB_USER"],
-        "PASSWORD": os.environ["DB_PASSWORD"],
-        "HOST": os.environ["DB_HOST"],
-        "PORT": os.environ.get("DB_PORT", "5432"),
+        "NAME": db_values["DB_NAME"],
+        "USER": db_values["DB_USER"],
+        "PASSWORD": db_values["DB_PASSWORD"],
+        "HOST": db_values["DB_HOST"],
+        "PORT": os.environ.get("DB_PORT", "5432").strip() or "5432",
         "CONN_MAX_AGE": 600,
         "CONN_HEALTH_CHECKS": True,
         "OPTIONS": options,

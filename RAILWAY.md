@@ -94,12 +94,18 @@ Aiven / external PostgreSQL:
 DB_NAME=defaultdb
 DB_USER=avnadmin
 DB_PASSWORD=<password>
-DB_HOST=<host>.aivencloud.com
-DB_PORT=<port>
+DB_HOST=pg-8205-mkulimaflowapp.a.aivencloud.com
+DB_PORT=26736
 DB_SSLMODE=require
 ```
 
 The app reads `DATABASE_URL` first. If it is absent, it uses the `DB_*` values.
+
+Copy `DB_HOST` from the Aiven console **in full** — it must end in
+`.aivencloud.com`. A host missing its top-level domain produces
+`failed to resolve host ... Name or service not known`. Also allow Railway's
+traffic in Aiven under **Allowed IP addresses** (`0.0.0.0/0` for a public
+service), otherwise the connection will time out after DNS resolves.
 
 ### Payments
 
@@ -170,6 +176,12 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
   the repository root. `mkulimaflow_frontend/` and `mkulimaflow_backend/` must
   both be in the build context, so set **Settings → Source → Root Directory** to
   `/` and redeploy. `Dockerfile Path` must be `Dockerfile`.
+- **`failed to resolve host '...'` / `Name or service not known`** — the database
+  host value is wrong or incomplete. A truncated host such as
+  `pg-8205-mkulimaflowapp.a.aivencloud` must be
+  `pg-8205-mkulimaflowapp.a.aivencloud.com`. Check **Variables → `DB_HOST`** and,
+  if it is set, **`DATABASE_URL`** (a URL takes priority over `DB_*`). Settings
+  now fail with a clear message when a database variable is missing.
 - **400 Bad Request / CSRF failure** — the public domain is missing from
   `DJANGO_ALLOWED_HOSTS` or `DJANGO_CSRF_TRUSTED_ORIGINS`. Railway's generated
   domain is handled automatically; custom domains are not.
