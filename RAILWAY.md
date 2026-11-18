@@ -80,15 +80,20 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 
 ### Database
 
-Use **either** a Railway PostgreSQL service **or** your existing Aiven database.
-
-Railway PostgreSQL:
+The deployed app uses a **Railway PostgreSQL service**; local development keeps
+using Aiven. Set on the app service:
 
 ```text
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 ```
 
-Aiven / external PostgreSQL:
+Remove the `DB_*` variables from the app service so there is a single source of
+truth. `DATABASE_URL` is read first; `DB_*` is only a fallback.
+
+Applying the existing local data is covered in
+[Seed the existing data](#4-seed-the-existing-data).
+
+Aiven / external PostgreSQL (local development only):
 
 ```text
 DB_NAME=defaultdb
@@ -98,8 +103,6 @@ DB_HOST=pg-8205-mkulimaflowapp.a.aivencloud.com
 DB_PORT=26736
 DB_SSLMODE=require
 ```
-
-The app reads `DATABASE_URL` first. If it is absent, it uses the `DB_*` values.
 
 Copy `DB_HOST` from the Aiven console **in full** — it must end in
 `.aivencloud.com`. A host missing its top-level domain produces
@@ -148,7 +151,54 @@ DJANGO_ALLOWED_HOSTS=app.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://app.example.com
 ```
 
-## 4. Create an admin user
+## 4. Seed the existing data
+
+The local development data lives in the Aiven database. Copy it into the Railway
+PostgreSQL service so the deployed app starts with the same users, farms and
+flocks.
+
+Do this **before creating a superuser**: `loaddata` matches rows by primary key,
+so a pre-existing user with `pk=1` would be overwritten by the exported `alvin`
+user.
+
+1. Add the PostgreSQL service to the Railway project and set
+   `DATABASE_URL=${{Postgres.DATABASE_URL}}` on the app service. Deploy once so
+   the container's `migrate` step creates the schema.
+2. On the PostgreSQL service, open **Settings → Networking → TCP Proxy** and copy
+   **`DATABASE_PUBLIC_URL`**. The private URL
+   (`postgres.railway.internal`) only resolves inside Railway.
+3. Export the local data (writes `.local/seed.json`, which is git-ignored):
+
+   ```powershell
+   cd mkulimaflow_backend\mkulimaflow
+   ..\..\.venv\Scripts\python.exe manage.py export_data -o ..\..\.local\seed.json
+   ```
+
+   The command writes groups before users and orders models by foreign-key
+   dependency, which `dumpdata` does not guarantee on its own.
+4. Import it into Railway PostgreSQL:
+
+   ```powershell
+   $env:DATABASE_URL = "<DATABASE_PUBLIC_URL>"
+   ..\..\.venv\Scripts\python.exe manage.py loaddata ..\..\.local\seed.json
+   ```
+
+   Expected output: `Installed 19 object(s) from 1 fixture(s)`.
+5. Check the result in the deployed app: the three users, three farms and four
+   flocks should be visible. Password hashes are exported as-is, so existing
+   passwords keep working.
+6. Close the TCP proxy if you do not need external access.
+
+Notes:
+
+- The seed file contains password hashes. `.local/` is ignored by git and by the
+  Docker build; delete the file after importing if you prefer.
+- `loaddata` is additive and overwrites rows with the same primary key. Run it
+  once on a fresh database.
+- Re-run `export_data` whenever the local data changes; it reads whatever the
+  local `.env` points at.
+
+## 5. Create an admin user
 
 Use the Railway CLI:
 
@@ -160,7 +210,7 @@ railway run python mkulimaflow_backend/mkulimaflow/manage.py createsuperuser
 Or open a shell on the service and run it from
 `/app/backend/mkulimaflow`.
 
-## 5. Custom domain
+## 6. Custom domain
 
 After attaching a domain in Railway:
 
@@ -187,6 +237,10 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
   domain is handled automatically; custom domains are not.
 - **Static files or images return 404** — the frontend build did not reach
   `backend/mkulimaflow/frontend_dist`. Check the Docker build log.
+- **`loaddata` cannot reach the database during seeding** — use the
+  **`DATABASE_PUBLIC_URL`** copied from the Postgres service's TCP proxy.
+  `DATABASE_URL` points at `postgres.railway.internal`, which only resolves
+  inside Railway.
 - **Database connection error** — verify the DB host/port, and set
   `DB_SSLMODE=require` for Aiven. Confirm the database allows the Railway
   service's public IP.
