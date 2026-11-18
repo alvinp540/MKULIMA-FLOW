@@ -80,8 +80,8 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 
 ### Database
 
-The deployed app uses a **Railway PostgreSQL service**; local development keeps
-using Aiven. Set on the app service:
+The deployed app uses a **Railway PostgreSQL service**; local development uses the
+**local PostgreSQL 18 server** on `127.0.0.1:5432`. Set on the app service:
 
 ```text
 DATABASE_URL=${{Postgres.DATABASE_URL}}
@@ -93,22 +93,29 @@ truth. `DATABASE_URL` is read first; `DB_*` is only a fallback.
 Applying the existing local data is covered in
 [Seed the existing data](#4-seed-the-existing-data).
 
-Aiven / external PostgreSQL (local development only):
+Local `.env` (database section):
 
 ```text
-DB_NAME=defaultdb
-DB_USER=avnadmin
-DB_PASSWORD=<password>
-DB_HOST=pg-8205-mkulimaflowapp.a.aivencloud.com
-DB_PORT=26736
-DB_SSLMODE=require
+DB_NAME=mkulimaflow
+DB_USER=mkulimaflow
+DB_PASSWORD=<generated password>
+DB_HOST=127.0.0.1
+DB_PORT=5432
 ```
 
-Copy `DB_HOST` from the Aiven console **in full** — it must end in
-`.aivencloud.com`. A host missing its top-level domain produces
-`failed to resolve host ... Name or service not known`. Also allow Railway's
-traffic in Aiven under **Allowed IP addresses** (`0.0.0.0/0` for a public
-service), otherwise the connection will time out after DNS resolves.
+The role and database were created once with:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h 127.0.0.1 `
+  -c "CREATE ROLE mkulimaflow LOGIN PASSWORD '<generated password>'" `
+  -c "CREATE DATABASE mkulimaflow OWNER mkulimaflow"
+```
+
+The previous Aiven database (`pg-8205-mkulimaflowapp.a.aivencloud.com`) is no
+longer used by the app; its rows were imported into the local server. The
+credentials remain in `.env` as comments for reference. If you ever point the app
+back at Aiven, copy `DB_HOST` in full — it must end in `.aivencloud.com`, and the
+service must allow the client IP under **Allowed IP addresses**.
 
 ### Payments
 
@@ -153,9 +160,9 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://app.example.com
 
 ## 4. Seed the existing data
 
-The local development data lives in the Aiven database. Copy it into the Railway
-PostgreSQL service so the deployed app starts with the same users, farms and
-flocks.
+The local development data lives in the local PostgreSQL 18 server. Copy it into
+the Railway PostgreSQL service so the deployed app starts with the same users,
+farms and flocks.
 
 Do this **before creating a superuser**: `loaddata` matches rows by primary key,
 so a pre-existing user with `pk=1` would be overwritten by the exported `alvin`
@@ -242,8 +249,7 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
   `DATABASE_URL` points at `postgres.railway.internal`, which only resolves
   inside Railway.
 - **Database connection error** — verify the DB host/port, and set
-  `DB_SSLMODE=require` for Aiven. Confirm the database allows the Railway
-  service's public IP.
+  `DB_SSLMODE=require` for Aiven. Confirm the database allows the client IP.
 - **Payment methods disabled** — expected in production without credentials.
   Set `PAYMENTS_DEMO_MODE=True` for staging, or configure real M-Pesa keys.
 - **Health check or restart policy not applied from `railway.json`** — Railway is
