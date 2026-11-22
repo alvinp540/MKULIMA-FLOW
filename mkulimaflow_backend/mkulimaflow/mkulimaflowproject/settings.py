@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 import os
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urlparse
+from urllib.parse import parse_qsl, quote, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -49,6 +49,13 @@ def env_bool(name, default=False):
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name, default):
+    try:
+        return int(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
 
 
 def env_list(name):
@@ -251,6 +258,71 @@ def database_config():
 
 
 DATABASES = {"default": database_config()}
+
+
+# Cache and sessions
+# Redis is optional: without it the app uses a process-local cache and DB-backed
+# sessions, so local development and small deployments still work unchanged.
+
+def redis_cache_url():
+    configured = (
+        os.environ.get("REDIS_URL")
+        or os.environ.get("REDIS_PUBLIC_URL")
+        or ""
+    ).strip()
+    if configured:
+        if not urlparse(configured).hostname:
+            raise ImproperlyConfigured(
+                "REDIS_URL is set but has no host. Expected a value like "
+                "redis://:password@host:6379/0"
+            )
+        return configured
+
+    host = os.environ.get("REDIS_HOST", "").strip()
+    if not host:
+        return ""
+
+    port = os.environ.get("REDIS_PORT", "6379").strip() or "6379"
+    database = os.environ.get("REDIS_DB", "0").strip() or "0"
+    password = os.environ.get("REDIS_PASSWORD", "").strip()
+    credentials = f":{quote(password, safe='')}@" if password else ""
+    return f"redis://{credentials}{host}:{port}/{database}"
+
+
+REDIS_URL = redis_cache_url()
+REDIS_ENABLED = bool(REDIS_URL) and env_bool("REDIS_ENABLED", True)
+CACHE_TIMEOUT = env_int("CACHE_TIMEOUT", 300)
+CACHE_KEY_PREFIX = os.environ.get("CACHE_KEY_PREFIX", "mkulimaflow").strip() or "mkulimaflow"
+SESSION_CACHE_ALIAS = "default"
+
+if REDIS_ENABLED:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "TIMEOUT": CACHE_TIMEOUT,
+            "KEY_PREFIX": CACHE_KEY_PREFIX,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": env_bool("REDIS_IGNORE_EXCEPTIONS", True),
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": env_int("REDIS_MAX_CONNECTIONS", 50),
+                },
+            },
+        }
+    }
+    # cached_db keeps sessions fast while still surviving Redis restarts.
+    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": CACHE_KEY_PREFIX,
+            "TIMEOUT": CACHE_TIMEOUT,
+            "KEY_PREFIX": CACHE_KEY_PREFIX,
+        }
+    }
+    SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 
 # Password validation

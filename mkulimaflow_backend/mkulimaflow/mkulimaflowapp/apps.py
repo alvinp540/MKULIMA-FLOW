@@ -31,3 +31,7 @@ class MkulimaflowappConfig(AppConfig):
             sender=self,
             dispatch_uid="mkulimaflowapp.create_role_groups",
         )
+
+        from .cache_utils import connect_cache_signals
+
+        connect_cache_signals()

@@ -2,6 +2,7 @@ import json
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -334,3 +335,53 @@ class AuthenticationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+
+
+class ResponseCacheTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.owner = get_user_model().objects.create_user(
+            username="cacheowner",
+            password="Strong-test-password-593!",
+        )
+        self.client.force_login(self.owner)
+        self.farm = Farm.objects.create(owner=self.owner, name="Main farm")
+
+    def test_farm_list_is_cached_and_bypassed_writes_do_not_refresh_it(self):
+        first = self.client.get(reverse("api_farms"), HTTP_HOST="localhost")
+        self.assertEqual(first.json()["farms"][0]["name"], "Main farm")
+
+        # queryset.update() bypasses model signals, so the cached copy remains.
+        Farm.objects.filter(pk=self.farm.pk).update(name="Signal-free rename")
+        cached = self.client.get(reverse("api_farms"), HTTP_HOST="localhost")
+        self.assertEqual(cached.json()["farms"][0]["name"], "Main farm")
+
+    def test_model_save_invalidates_the_cached_response(self):
+        self.client.get(reverse("api_farms"), HTTP_HOST="localhost")
+
+        self.farm.name = "Renamed farm"
+        self.farm.save()
+
+        refreshed = self.client.get(reverse("api_farms"), HTTP_HOST="localhost")
+        self.assertEqual(refreshed.json()["farms"][0]["name"], "Renamed farm")
+
+    def test_cached_responses_are_isolated_per_user(self):
+        other = get_user_model().objects.create_user(
+            username="otherowner",
+            password="Strong-test-password-593!",
+        )
+        Farm.objects.create(owner=other, name="Other farm")
+        other_client = Client()
+        other_client.force_login(other)
+
+        own_response = self.client.get(reverse("api_farms"), HTTP_HOST="localhost")
+        other_response = other_client.get(reverse("api_farms"), HTTP_HOST="localhost")
+
+        self.assertEqual(
+            [farm["name"] for farm in own_response.json()["farms"]],
+            ["Main farm"],
+        )
+        self.assertEqual(
+            [farm["name"] for farm in other_response.json()["farms"]],
+            ["Other farm"],
+        )

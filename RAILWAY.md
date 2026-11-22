@@ -10,7 +10,7 @@ same-origin, so there is no CORS setup.
 | --- | --- |
 | `Dockerfile` | Builds the React app with Node, then runs Django with Gunicorn. |
 | `railway.json` | Requests the Dockerfile builder and `/api/health/` health check. Railway is deprecating this file, so also set these values in the dashboard. |
-| `mkulimaflow_backend/requirements.txt` | Python dependencies, including Gunicorn and WhiteNoise. |
+| `mkulimaflow_backend/requirements.txt` | Python dependencies, including Gunicorn, WhiteNoise and the Redis cache backend. |
 | `.dockerignore` | Keeps `.venv`, `node_modules`, `dist`, logs and secrets out of the image. |
 | `.gitignore` | Keeps local credentials, virtualenv and build output out of git. |
 
@@ -116,6 +116,43 @@ longer used by the app; its rows were imported into the local server. The
 credentials remain in `.env` as comments for reference. If you ever point the app
 back at Aiven, copy `DB_HOST` in full — it must end in `.aivencloud.com`, and the
 service must allow the client IP under **Allowed IP addresses**.
+
+### Redis (recommended)
+
+Redis speeds up repeated reads by caching API responses and session lookups.
+Create a **Redis** service in the same Railway project, then set on the app
+service:
+
+```text
+REDIS_URL=${{Redis.REDIS_URL}}
+```
+
+Railway's `REDIS_URL` already contains the host, password and database. If the
+service is named something other than `Redis`, use that service name in the
+reference. The app uses `django-redis` for its cache and `cached_db` sessions:
+sessions still survive a Redis restart because the database remains the source
+of truth.
+
+Without `REDIS_URL`, the app falls back to a process-local cache and DB-backed
+sessions, so the deployment still works. `REDIS_IGNORE_EXCEPTIONS=True` (the
+default) keeps requests serving from the database if Redis is briefly
+unavailable. Optional tuning variables:
+
+```text
+REDIS_ENABLED=True
+REDIS_IGNORE_EXCEPTIONS=True
+REDIS_MAX_CONNECTIONS=50
+CACHE_TIMEOUT=300
+CACHE_KEY_PREFIX=mkulimaflow
+```
+
+Use a unique `CACHE_KEY_PREFIX` if several Django apps share one Redis database.
+Owner-scoped reads are cached (farms, flocks, egg/feed/health lists, dashboards
+and reports). Every cached key includes the user id and a per-user version, and
+model save/delete signals bump that version, so a write invalidates stale
+responses immediately. Auth/session, CSRF, settings and payment-status endpoints
+are deliberately not cached because they depend on cookies or live external
+state.
 
 ### Payments
 
@@ -250,6 +287,10 @@ MPESA_CALLBACK_URL=https://app.example.com/api/payments/mpesa/callback/
   inside Railway.
 - **Database connection error** — verify the DB host/port, and set
   `DB_SSLMODE=require` for Aiven. Confirm the database allows the client IP.
+- **Responses feel slower than expected** — confirm `REDIS_URL` is set on the app
+  service and that the Redis service is healthy. With `REDIS_IGNORE_EXCEPTIONS`
+  the app keeps working from PostgreSQL when Redis is down, but without the
+  cache speed-up.
 - **Payment methods disabled** — expected in production without credentials.
   Set `PAYMENTS_DEMO_MODE=True` for staging, or configure real M-Pesa keys.
 - **Health check or restart policy not applied from `railway.json`** — Railway is

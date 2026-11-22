@@ -20,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from . import mpesa
+from .cache_utils import cached_user_view
 from .forms import RegisterForm
 from .models import (
     DiseaseCase,
@@ -515,6 +516,7 @@ def api_user_settings(request):
     return JsonResponse({"settings": _serialize_user_settings(settings_record)})
 
 
+@cached_user_view("farms")
 @require_http_methods(["GET", "POST"])
 def api_farms(request):
     response = _ensure_authenticated(request)
@@ -546,6 +548,7 @@ def api_farms(request):
     return JsonResponse({"farms": [_serialize_farm(farm) for farm in farms]})
 
 
+@cached_user_view("flocks")
 @require_http_methods(["GET", "POST"])
 def api_flocks(request):
     response = _ensure_authenticated(request)
@@ -651,6 +654,7 @@ def api_flocks(request):
     )
 
 
+@cached_user_view("flock_detail")
 @require_http_methods(["GET", "PATCH", "DELETE"])
 def api_flock_detail(request, flock_id):
     response = _ensure_authenticated(request)
@@ -719,6 +723,7 @@ def api_flock_detail(request, flock_id):
     return JsonResponse(_serialize_flock(flock))
 
 
+@cached_user_view("egg_production")
 @require_http_methods(["GET", "POST"])
 def api_egg_production(request):
     response = _ensure_authenticated(request)
@@ -783,6 +788,7 @@ def api_egg_production(request):
     )
 
 
+@cached_user_view("egg_detail")
 @require_http_methods(["GET", "PATCH", "DELETE"])
 def api_egg_production_detail(request, egg_id):
     response = _ensure_authenticated(request)
@@ -851,6 +857,7 @@ def api_egg_production_detail(request, egg_id):
     return JsonResponse(_serialize_egg_production(record))
 
 
+@cached_user_view("feed_items")
 @require_http_methods(["GET", "POST"])
 def api_feed_items(request):
     response = _ensure_authenticated(request)
@@ -895,6 +902,7 @@ def api_feed_items(request):
     return JsonResponse({"items": [_serialize_feed_item(item) for item in items]})
 
 
+@cached_user_view("feed_stock")
 @require_http_methods(["GET", "POST"])
 def api_feed_stock(request):
     response = _ensure_authenticated(request)
@@ -1013,6 +1021,7 @@ def api_feed_stock_out(request):
     return JsonResponse({"movements": []})
 
 
+@cached_user_view("feed_movements")
 @require_GET
 def api_feed_movements(request):
     response = _ensure_authenticated(request)
@@ -1026,6 +1035,7 @@ def api_feed_movements(request):
     return JsonResponse({"movements": [_serialize_feed_movement(movement) for movement in movements]})
 
 
+@cached_user_view("feed_consumption")
 @require_http_methods(["GET", "POST"])
 def api_feed_consumption(request):
     response = _ensure_authenticated(request)
@@ -1089,6 +1099,7 @@ def api_feed_consumption(request):
     return JsonResponse({"movements": [_serialize_feed_movement(movement) for movement in movements]})
 
 
+@cached_user_view("feed_low_stock")
 @require_GET
 def api_feed_low_stock(request):
     response = _ensure_authenticated(request)
@@ -1099,6 +1110,7 @@ def api_feed_low_stock(request):
     return JsonResponse({"items": [_serialize_feed_item(item) for item in items]})
 
 
+@cached_user_view("feed_reports")
 @require_GET
 def api_feed_reports(request):
     response = _ensure_authenticated(request)
@@ -1121,6 +1133,7 @@ def api_feed_reports(request):
     return JsonResponse({"report": report})
 
 
+@cached_user_view("health_dashboard")
 @require_GET
 def api_health_dashboard(request):
     response = _ensure_authenticated(request)
@@ -1162,6 +1175,7 @@ def api_health_dashboard(request):
     })
 
 
+@cached_user_view("health_records")
 @require_http_methods(["GET", "POST"])
 def api_health_records(request):
     response = _ensure_authenticated(request)
@@ -1209,6 +1223,7 @@ def api_health_records(request):
     return JsonResponse({"records": [_serialize_health_record(record) for record in records]})
 
 
+@cached_user_view("health_vaccinations")
 @require_http_methods(["GET", "POST"])
 def api_health_vaccinations(request):
     response = _ensure_authenticated(request)
@@ -1278,6 +1293,7 @@ def api_health_vaccinations(request):
     })
 
 
+@cached_user_view("health_diseases")
 @require_http_methods(["GET", "POST"])
 def api_health_diseases(request):
     response = _ensure_authenticated(request)
@@ -1325,6 +1341,7 @@ def api_health_diseases(request):
     return JsonResponse({"cases": [_serialize_disease_case(case) for case in cases]})
 
 
+@cached_user_view("health_treatments")
 @require_http_methods(["GET", "POST"])
 def api_health_treatments(request):
     response = _ensure_authenticated(request)
@@ -1382,6 +1399,7 @@ def api_health_treatments(request):
     return JsonResponse({"records": [_serialize_treatment_record(record) for record in records]})
 
 
+@cached_user_view("health_mortality")
 @require_http_methods(["GET", "POST"])
 def api_health_mortality(request):
     response = _ensure_authenticated(request)
@@ -1429,6 +1447,7 @@ def api_health_mortality(request):
     return JsonResponse({"records": [_serialize_mortality_record(record) for record in records]})
 
 
+@cached_user_view("health_schedules")
 @require_http_methods(["GET", "POST"])
 def api_health_schedules(request):
     response = _ensure_authenticated(request)
@@ -1474,6 +1493,7 @@ def api_health_schedules(request):
     return JsonResponse({"records": [_serialize_health_schedule(record) for record in records]})
 
 
+@cached_user_view("health_vet_visits")
 @require_http_methods(["GET", "POST"])
 def api_health_veterinary_visits(request):
     response = _ensure_authenticated(request)
@@ -1517,6 +1537,7 @@ def api_health_veterinary_visits(request):
     return JsonResponse({"records": [_serialize_veterinary_visit(record) for record in records]})
 
 
+@cached_user_view("health_reports")
 @require_GET
 def api_health_reports(request):
     response = _ensure_authenticated(request)
