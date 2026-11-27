@@ -1,10 +1,20 @@
 const AUTH_API = '/api/auth'
+
+// In production Vite inlines VITE_API_BASE_URL at build time. Leaving it
+// empty preserves the local dev behaviour, where Vite proxies /api to Django.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+
+function withApiBase(url) {
+  if (!API_BASE || /^https?:\/\//i.test(url) || url.startsWith(API_BASE)) return url
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`
+}
+
 let csrfToken = ''
 
 async function getCsrfToken() {
   if (csrfToken) return csrfToken
 
-  const response = await fetch(`${AUTH_API}/csrf/`, {
+  const response = await fetch(withApiBase(`${AUTH_API}/csrf/`), {
     credentials: 'include',
   })
 
@@ -29,7 +39,7 @@ export async function csrfFetch(url, { method = 'GET', body, headers = {}, crede
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(withApiBase(url), {
       method,
       credentials,
       headers: requestHeaders,

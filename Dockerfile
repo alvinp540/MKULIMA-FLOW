@@ -1,18 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# Build the React frontend
-FROM node:22-alpine AS frontend
-WORKDIR /app
+# The React app is deployed separately on Vercel. This image runs only the
+# Django API, admin and WhiteNoise-served admin static files.
 
-COPY mkulimaflow_frontend/package.json mkulimaflow_frontend/package-lock.json ./
-RUN npm ci
-
-COPY mkulimaflow_frontend/ ./
-RUN npm run build
-
-
-# Run Django and serve the built frontend with WhiteNoise
 FROM python:3.13-slim AS runtime
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
@@ -27,7 +19,6 @@ COPY mkulimaflow_backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY mkulimaflow_backend/ ./backend/
-COPY --from=frontend /app/dist ./backend/mkulimaflow/frontend_dist
 
 WORKDIR /app/backend/mkulimaflow
 

@@ -58,6 +58,14 @@ def env_int(name, default):
         return default
 
 
+def env_first(*names, default=""):
+    for name in names:
+        value = os.environ.get(name)
+        if value is not None and value.strip():
+            return value.strip()
+    return default
+
+
 def env_list(name):
     return [
         item.strip()
@@ -74,12 +82,15 @@ RAILWAY_PRIVATE_DOMAIN = os.environ.get("RAILWAY_PRIVATE_DOMAIN", "").strip()
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+# DJANGO_SECRET_KEY is the existing name; SECRET_KEY is accepted as an alias.
+SECRET_KEY = env_first("DJANGO_SECRET_KEY", "SECRET_KEY")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY (or SECRET_KEY) before starting Django.")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool("DJANGO_DEBUG", False)
+DEBUG = env_bool("DJANGO_DEBUG", env_bool("DEBUG", False))
 
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS") or env_list("ALLOWED_HOSTS")
 ALLOWED_HOSTS.extend(
     host
     for host in (
@@ -94,13 +105,34 @@ ALLOWED_HOSTS.extend(
     if host and host not in ALLOWED_HOSTS
 )
 
-CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+# The React app is deployed separately on Vercel. CORS is restricted to the
+# configured frontend origins; wildcard origins are only a local convenience.
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", True)
+CORS_ALLOW_ALL_ORIGINS = env_bool(
+    "CORS_ALLOW_ALL_ORIGINS",
+    DEBUG and not CORS_ALLOWED_ORIGINS,
+)
+
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS") or env_list(
+    "CSRF_TRUSTED_ORIGINS"
+)
 for origin in (
     f"https://{RAILWAY_PUBLIC_DOMAIN}" if RAILWAY_PUBLIC_DOMAIN else "",
     f"http://{RAILWAY_PRIVATE_DOMAIN}" if RAILWAY_PRIVATE_DOMAIN else "",
+    *CORS_ALLOWED_ORIGINS,
 ):
     if origin and origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
+
+# Cross-site fetch() needs SameSite=None on both cookies. Secure is already
+# enabled whenever DEBUG is False.
+CROSS_ORIGIN_FRONTEND = bool(CORS_ALLOWED_ORIGINS) and not DEBUG
+COOKIE_SAMESITE = (
+    os.environ.get("DJANGO_COOKIE_SAMESITE", "None" if CROSS_ORIGIN_FRONTEND else "Lax")
+    .strip()
+    or "Lax"
+)
 
 if DEBUG:
     for origin in (
@@ -142,6 +174,7 @@ PAYMENTS_DEMO_MODE = env_bool("PAYMENTS_DEMO_MODE", DEBUG)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    'corsheaders',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -161,6 +194,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -362,8 +396,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# The React production build is copied here by the Docker image. WhiteNoise
-# serves its files (index.html, /assets, /images, /videos) at the site root.
+# Optional local/single-service fallback: if a React build is placed here,
+# WhiteNoise serves it at the site root. The Railway backend image no longer
+# copies the frontend; Vercel hosts the production React app.
 FRONTEND_DIST = BASE_DIR / 'frontend_dist'
 if FRONTEND_DIST.is_dir():
     WHITENOISE_ROOT = FRONTEND_DIST
@@ -373,16 +408,19 @@ WHITENOISE_MAX_AGE = 60 * 60 * 24 * 30
 # Production security. Railway terminates TLS and forwards X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = not DEBUG
-SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
+SECURE_REDIRECT_EXEMPT = [r'^api/health/$', r'^health/$', r'^health/db/$']
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_HSTS_PRELOAD = False
+# These can be disabled for custom-domain setups with insecure subdomains.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "DJANGO_HSTS_INCLUDE_SUBDOMAINS", not DEBUG
+)
+SECURE_HSTS_PRELOAD = env_bool("DJANGO_HSTS_PRELOAD", not DEBUG)
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False
-SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = COOKIE_SAMESITE
+CSRF_COOKIE_SAMESITE = COOKIE_SAMESITE
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
@@ -391,11 +429,29 @@ X_FRAME_OPTIONS = 'DENY'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Django 6.1 uses MAILERS; deprecated EMAIL_* settings cannot be defined here.
+EMAIL_BACKEND_PATH = env_first(
+    "DJANGO_EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': EMAIL_BACKEND_PATH,
     },
 }
+if EMAIL_BACKEND_PATH == "django.core.mail.backends.smtp.EmailBackend":
+    MAILERS['default']['OPTIONS'] = {
+        'host': os.environ.get("EMAIL_HOST", "").strip() or "localhost",
+        'port': env_int("EMAIL_PORT", 587),
+        'username': os.environ.get("EMAIL_HOST_USER", "").strip(),
+        'password': os.environ.get("EMAIL_HOST_PASSWORD", "").strip(),
+        'use_tls': env_bool("EMAIL_USE_TLS", True),
+    }
+DEFAULT_FROM_EMAIL = env_first("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
 
 DJANGO_SETTINGS_MODULE = "mkulimaflowproject.settings"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

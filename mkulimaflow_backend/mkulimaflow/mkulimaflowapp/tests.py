@@ -1,10 +1,11 @@
 import json
+from decimal import Decimal
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .forms import RegisterForm
@@ -139,8 +140,11 @@ class FeedInventoryModelTests(TestCase):
             reference="Batch A",
         )
 
+        feed.refresh_from_db()
+        movement.refresh_from_db()
+
         self.assertEqual(feed.name, "Broiler Starter")
-        self.assertEqual(movement.quantity, 50)
+        self.assertEqual(movement.quantity, Decimal("50.00"))
         self.assertTrue(feed.current_stock >= 0)
 
 
@@ -385,3 +389,41 @@ class ResponseCacheTests(TestCase):
             [farm["name"] for farm in other_response.json()["farms"]],
             ["Other farm"],
         )
+
+
+class HealthAndCorsTests(TestCase):
+    def test_health_endpoints_are_available(self):
+        liveness = self.client.get("/health/", HTTP_HOST="localhost")
+        readiness = self.client.get("/health/db/", HTTP_HOST="localhost")
+
+        self.assertEqual(liveness.status_code, 200)
+        self.assertEqual(liveness.json(), {"status": "ok"})
+        self.assertEqual(readiness.status_code, 200)
+        self.assertEqual(readiness.json()["database"], "ok")
+
+    @override_settings(
+        CORS_ALLOWED_ORIGINS=["https://frontend.example"],
+        CORS_ALLOW_ALL_ORIGINS=False,
+        CORS_ALLOW_CREDENTIALS=True,
+    )
+    def test_cors_allows_only_configured_frontend_origin(self):
+        allowed = self.client.get(
+            "/health/",
+            HTTP_HOST="localhost",
+            HTTP_ORIGIN="https://frontend.example",
+        )
+        denied = self.client.get(
+            "/health/",
+            HTTP_HOST="localhost",
+            HTTP_ORIGIN="https://untrusted.example",
+        )
+
+        self.assertEqual(
+            allowed.headers["Access-Control-Allow-Origin"],
+            "https://frontend.example",
+        )
+        self.assertEqual(
+            allowed.headers["Access-Control-Allow-Credentials"],
+            "true",
+        )
+        self.assertNotIn("Access-Control-Allow-Origin", denied.headers)

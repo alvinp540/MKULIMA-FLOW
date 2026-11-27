@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.db.models import F, Sum
 from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
@@ -1968,7 +1968,19 @@ def api_online_payment_status(request, reference):
 
 @require_GET
 def api_health(request):
+    """Lightweight liveness probe; no database or Redis access."""
     return JsonResponse({"status": "ok"})
+
+
+@require_GET
+def api_health_db(request):
+    """Database readiness probe; returns 503 when PostgreSQL is unavailable."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except DatabaseError:
+        return JsonResponse({"status": "error", "database": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok", "database": "ok"})
 
 
 @require_GET

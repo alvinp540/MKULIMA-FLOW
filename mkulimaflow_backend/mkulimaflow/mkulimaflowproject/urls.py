@@ -13,6 +13,7 @@ urlpatterns = [
         ),
         name='login',
     ),
-    path('', include('mkulimaflowapp.urls')),
+    # Django's built-in auth URLs must precede the app's SPA catch-all.
     path('', include('django.contrib.auth.urls')),
+    path('', include('mkulimaflowapp.urls')),
 ]
